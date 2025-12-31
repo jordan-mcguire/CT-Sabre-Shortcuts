@@ -130,7 +130,6 @@
                     temp.select();
                     document.execCommand('copy');
                     document.body.removeChild(temp);
-                    alert('PNR copied: ' + pnr);
                 } else {
                     alert('PNR not found');
                 }
