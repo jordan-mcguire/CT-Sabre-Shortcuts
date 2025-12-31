@@ -159,7 +159,7 @@
             } else if (action === 'tripProposal') {
                 // Load and execute trip proposal script
                 var script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/gh/YOUR-USERNAME/sabre-shortcuts@main/trip-proposal.js';
+                script.src = 'https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
                 document.body.appendChild(script);
             }
         });
