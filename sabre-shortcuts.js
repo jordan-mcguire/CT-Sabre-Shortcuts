@@ -75,7 +75,6 @@
         if (bookingInfo.company) text += 'Company: ' + bookingInfo.company + '\n';
         if (bookingInfo.costCentre) text += 'Cost Centre: ' + bookingInfo.costCentre + '\n';
         if (bookingInfo.booker) text += 'Booker: ' + bookingInfo.booker + '\n';
-        if (bookingInfo.booker) text += 'Approval Status: ' + (bookingInfo.approved ? 'APPROVED' : 'PENDING') + '\n';
         var temp = document.createElement('textarea');
         temp.value = text;
         document.body.appendChild(temp);
