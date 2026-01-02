@@ -5,11 +5,110 @@
         return;
     }
 
+    // Extract booking information
+    function extractBookingInfo() {
+        const bodyText = document.body.innerText;
+        const lines = document.querySelectorAll('.dn-line.text-line');
+        
+        let info = {
+            pnr: '',
+            traveller: '',
+            company: '',
+            costCentre: '',
+            booker: '',
+            approved: false,
+            notes: []
+        };
+
+        // Extract PNR
+        for (let i = 0; i < lines.length; i++) {
+            const text = lines[i].innerText.trim();
+            if (text.length === 6 && /^[A-Z]{6}$/i.test(text)) {
+                info.pnr = text;
+                break;
+            }
+        }
+
+        // Extract Traveller Name (after 1.1)
+        const travellerMatch = bodyText.match(/1\.1([A-Z\/\s]+(?:MR|MRS|MS|MISS|DR|MSTR)?)/);
+        if (travellerMatch) {
+            info.traveller = travellerMatch[1].trim();
+        }
+
+        // Extract Company Code
+        const companyMatch = bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);
+        if (companyMatch) {
+            info.company = companyMatch[1].trim();
+        }
+
+        // Extract Cost Centre
+        const costCentreMatch = bodyText.match(/L¥CC-[^\/]+\/[^\/]+\/([^\s\n]+)/);
+        if (costCentreMatch) {
+            info.costCentre = costCentreMatch[1].trim();
+        }
+
+        // Extract Travel Booker
+        const bookerMatch = bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
+        if (bookerMatch) {
+            info.booker = bookerMatch[1].trim();
+        }
+
+        // Check if booking is approved
+        if (bodyText.indexOf('B¥BOOKING AUTHORISED') > -1) {
+            info.approved = true;
+        }
+
+        // Extract H-N- notes
+        const noteMatches = bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
+        for (const match of noteMatches) {
+            info.notes.push(match[1].trim());
+        }
+
+        return info;
+    }
+
+    const bookingInfo = extractBookingInfo();
+
+    // Create approval status HTML
+    let approvalHTML = '';
+    if (bookingInfo.booker) {
+        if (bookingInfo.approved) {
+            approvalHTML = '<div class="approval-status approved">✓ APPROVED</div>';
+        } else {
+            approvalHTML = '<div class="approval-status pending">⏳ PENDING</div>';
+        }
+    }
+
+    // Create booking info display HTML
+    let bookingInfoHTML = '';
+    if (bookingInfo.pnr || bookingInfo.traveller || bookingInfo.company) {
+        bookingInfoHTML = `
+            <div class="booking-info">
+                <div class="booking-info-title">📋 Current Booking</div>
+                $${bookingInfo.pnr ? `<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">$${bookingInfo.pnr}</span></div>` : ''}
+                $${bookingInfo.traveller ? `<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">$${bookingInfo.traveller}</span></div>` : ''}
+                $${bookingInfo.company ? `<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">$${bookingInfo.company}</span></div>` : ''}
+                $${bookingInfo.costCentre ? `<div class="info-row"><span class="info-label">Cost Centre:</span> <span class="info-value">$${bookingInfo.costCentre}</span></div>` : ''}
+                $${bookingInfo.booker ? `<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">$${bookingInfo.booker}</span></div>` : ''}
+                ${approvalHTML}
+            </div>
+        `;
+    }
+
+    // Create notes button if notes exist
+    let notesButtonHTML = '';
+    if (bookingInfo.notes.length > 0) {
+        notesButtonHTML = `<a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a>`;
+    }
+
     // Create menu
     var menu = document.createElement('div');
     menu.id = 'sabreShortcutsMenu';
     menu.innerHTML = `
         <div class="menu-header">⚡ Sabre Shortcuts</div>
+        ${bookingInfoHTML}
+        ${bookingInfo.pnr || bookingInfo.traveller ? '<a href="#" class="menu-item" data-action="copyBookingInfo">Copy Booking Info</a>' : ''}
+        ${notesButtonHTML}
         <a href="#" class="menu-item" data-action="copyPNR">Copy PNR</a>
         <a href="#" class="menu-item" data-action="viewSerko">View PNR in Serko</a>
         <a href="#" class="menu-item" data-action="masquerade">Masquerade in YourCT</a>
@@ -24,13 +123,15 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            width: 250px;
+            width: 280px;
             background: linear-gradient(135deg, #ff2e5f 0%, #ff6b9d 100%);
             border-radius: 10px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             padding: 15px;
             z-index: 999999;
             font-family: Arial, sans-serif;
+            max-height: 90vh;
+            overflow-y: auto;
         }
         .menu-header {
             color: white;
@@ -41,6 +142,56 @@
             padding-bottom: 10px;
             border-bottom: 2px solid rgba(255,255,255,0.3);
             cursor: move;
+        }
+        .booking-info {
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 11px;
+        }
+        .booking-info-title {
+            font-weight: bold;
+            color: #ff2e5f;
+            margin-bottom: 8px;
+            font-size: 12px;
+            text-align: center;
+        }
+        .info-row {
+            margin: 5px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #555;
+            margin-right: 8px;
+            min-width: 80px;
+        }
+        .info-value {
+            color: #333;
+            text-align: right;
+            word-break: break-word;
+            flex: 1;
+        }
+        .approval-status {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 11px;
+        }
+        .approval-status.approved {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .approval-status.pending {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
         }
         .menu-item {
             display: block;
@@ -61,6 +212,16 @@
             transform: translateX(-3px);
             box-shadow: 0 2px 8px rgba(0,0,0,0.2);
         }
+        .menu-item-alert {
+            background: #fff3cd;
+            border: 2px solid #ff9800;
+            font-weight: 600;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
         .close-btn {
             position: absolute;
             top: 5px;
@@ -72,6 +233,63 @@
         }
         .close-btn:hover {
             color: #ffeb3b;
+        }
+        .notes-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            z-index: 1000000;
+            max-width: 500px;
+            width: 90%;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .notes-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 999999;
+        }
+        .notes-modal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ff2e5f;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .notes-modal-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9800;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #333;
+            white-space: pre-wrap;
+        }
+        .notes-modal-close {
+            background: #ff2e5f;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 15px;
+            width: 100%;
+        }
+        .notes-modal-close:hover {
+            background: #e02850;
         }
     `;
     document.head.appendChild(style);
@@ -107,25 +325,71 @@
         menu.remove();
     });
 
+    // Function to copy booking info
+    function copyBookingInfo() {
+        let text = '=== BOOKING INFORMATION ===\n\n';
+        if (bookingInfo.pnr) text += `Sabre PNR: ${bookingInfo.pnr}\n`;
+        if (bookingInfo.traveller) text += `Traveller: ${bookingInfo.traveller}\n`;
+        if (bookingInfo.company) text += `Company: ${bookingInfo.company}\n`;
+        if (bookingInfo.costCentre) text += `Cost Centre: ${bookingInfo.costCentre}\n`;
+        if (bookingInfo.booker) text += `Booker: ${bookingInfo.booker}\n`;
+        if (bookingInfo.booker) {
+            text += `Approval Status: ${bookingInfo.approved ? 'APPROVED' : 'PENDING'}\n`;
+        }
+
+        var temp = document.createElement('textarea');
+        temp.value = text;
+        document.body.appendChild(temp);
+        temp.select();
+        document.execCommand('copy');
+        document.body.removeChild(temp);
+        alert('Booking info copied to clipboard!');
+    }
+
+    // Function to show notes modal
+    function showNotesModal() {
+        const overlay = document.createElement('div');
+        overlay.className = 'notes-modal-overlay';
+        
+        const modal = document.createElement('div');
+        modal.className = 'notes-modal';
+        
+        const notesText = bookingInfo.notes.join('\n');
+        
+        modal.innerHTML = `
+            <div class="notes-modal-title">⚠️ Notes to Agent</div>
+            <div class="notes-modal-content">${notesText}</div>
+            <button class="notes-modal-close">Close</button>
+        `;
+        
+        document.body.appendChild(overlay);
+        document.body.appendChild(modal);
+        
+        modal.querySelector('.notes-modal-close').addEventListener('click', function() {
+            overlay.remove();
+            modal.remove();
+        });
+        
+        overlay.addEventListener('click', function() {
+            overlay.remove();
+            modal.remove();
+        });
+    }
+
     // Menu item actions
     menu.querySelectorAll('.menu-item').forEach(function(item) {
         item.addEventListener('click', function(e) {
             e.preventDefault();
             var action = this.getAttribute('data-action');
 
-            if (action === 'copyPNR') {
-                var lines = document.querySelectorAll('.dn-line.text-line');
-                var pnr = '';
-                for (var i = 0; i < lines.length; i++) {
-                    var text = lines[i].innerText.trim();
-                    if (text.length === 6 && /^[A-Z]{6}$/i.test(text)) {
-                        pnr = text;
-                        break;
-                    }
-                }
-                if (pnr) {
+            if (action === 'copyBookingInfo') {
+                copyBookingInfo();
+            } else if (action === 'viewNotes') {
+                showNotesModal();
+            } else if (action === 'copyPNR') {
+                if (bookingInfo.pnr) {
                     var temp = document.createElement('textarea');
-                    temp.value = pnr;
+                    temp.value = bookingInfo.pnr;
                     document.body.appendChild(temp);
                     temp.select();
                     document.execCommand('copy');
@@ -133,34 +397,4 @@
                 } else {
                     alert('PNR not found');
                 }
-            } else if (action === 'viewSerko') {
-                const pattern = /Q¥QUOTE NUMBER\s*-\s*(\d+)/;
-                const bodyText = document.body.innerText;
-                const match = bodyText.match(pattern);
-                if (match && match[1]) {
-                    const quoteNum = match[1];
-                    const url = 'https://serko.au.fcm.travel/Web/Booking/Detail/' + quoteNum;
-                    window.open(url, '_blank');
-                } else {
-                    alert('Quote number not found!');
-                }
-            } else if (action === 'masquerade') {
-                const pattern = /U62-([A-F0-9-]+)/i;
-                const bodyText = document.body.innerText;
-                const match = bodyText.match(pattern);
-                if (match && match[1]) {
-                    const guid = match[1];
-                    const url = 'https://agentport.fcm.travel/SamlService/AgentToClientSsoTraveler/' + guid;
-                    window.open(url, '_blank');
-                } else {
-                    alert('Agentport or YourCT profile not found. This could be a profile that only exists in Lumina, or a guest traveller.');
-                }
-            } else if (action === 'tripProposal') {
-                // Load and execute trip proposal script
-                var script = document.createElement('script');
-                script.src = 'https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
-                document.body.appendChild(script);
             }
-        });
-    });
-})();

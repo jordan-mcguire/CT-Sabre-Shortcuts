@@ -1,400 +1,118 @@
 (function() {
-    // Toggle menu if already exists
-    if (document.getElementById('sabreShortcutsMenu')) {
-        document.getElementById('sabreShortcutsMenu').remove();
-        return;
-    }
+    var includeTCs = confirm('Include T&Cs?');
 
-    // Extract booking information
-    function extractBookingInfo() {
-        const bodyText = document.body.innerText;
-        const lines = document.querySelectorAll('.dn-line.text-line');
+    function tidyProposal() {
+        var iframe = document.querySelector('.share-container iframe');
+        if (!iframe) return false;
         
-        let info = {
-            pnr: '',
-            traveller: '',
-            company: '',
-            costCentre: '',
-            booker: '',
-            approved: false,
-            notes: []
-        };
+        var html = iframe.getAttribute('srcdoc');
+        if (!html) return false;
 
-        // Extract PNR
-        for (let i = 0; i < lines.length; i++) {
-            const text = lines[i].innerText.trim();
-            if (text.length === 6 && /^[A-Z]{6}$/i.test(text)) {
-                info.pnr = text;
-                break;
+        try {
+            var isCompact = html.indexOf('proposal-compact') !== -1;
+            var proposalType = isCompact ? 'proposal-compact' : 'proposal-enhanced';
+            var hasCarOption = (html.toLowerCase().indexOf('car option') > -1);
+
+            // Remove price breakdown
+            html = html.replace(/<tr>\s*<td class="proposal-enhanced-price-break-down[\s\S]*?<\/tr>\s*(?=\s*<\/table>)/g, '');
+            
+            // Remove seats, meal, emission labels
+            html = html.replace(/<strong[^>]*-(seats|meal|emission)-label[^>]*>[^<]*<\/strong>\s*<span[^>]*>[^<]*<\/span>\s*/g, '');
+
+            // Remove emission rows for compact
+            if (isCompact) {
+                html = html.replace(/<tr>\s*<td>\s*<strong id="proposal-compact[^"]*emission[^>]*>[\s\S]*?<\/tr>/g, '');
             }
-        }
 
-        // Extract Traveller Name (after 1.1)
-        const travellerMatch = bodyText.match(/1\.1([A-Z\/\s]+(?:MR|MRS|MS|MISS|DR|MSTR)?)/);
-        if (travellerMatch) {
-            info.traveller = travellerMatch[1].trim();
-        }
+            // Remove hotel images
+            html = html.replace(/<tr>\s*<td width="100%">\s*<table id="proposal-enhanced-\d+-hotel-segment-\d+-hotel-images"[\s\S]{1,3000}?<\/table>\s*<\/td>\s*<\/tr>/g, '');
+            html = html.replace(/<tr>\s*<td>\s*<img[^>]*class="proposal-enhanced-hotel-image"[^>]*>\s*<\/td>\s*<\/tr>/g, '');
 
-        // Extract Company Code
-        const companyMatch = bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);
-        if (companyMatch) {
-            info.company = companyMatch[1].trim();
-        }
+            // Style passenger names
+            var passengerRegex = new RegExp('(<span id="' + proposalType + '-passengers-list"[^>]*)>([\\s\\S]*?)<\\/span>', 'g');
+            html = html.replace(passengerRegex, function(match, attributes, content) {
+                return content.replace(/<[^>]*>/g, '').trim() ?
+                    '<br/><br/><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:14px;margin:10px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:10px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span id="' + proposalType + '-passengers-list"' + attributes + ' style="font-size:10px;line-height:1.6;display:block">' + content + '</span></div>' : match;
+            });
 
-        // Extract Cost Centre
-        const costCentreMatch = bodyText.match(/L¥CC-[^\/]+\/[^\/]+\/([^\s\n]+)/);
-        if (costCentreMatch) {
-            info.costCentre = costCentreMatch[1].trim();
-        }
+            // Alignment and styling
+            html = html.replace(/align="center"/g, 'align="left"');
+            html = html.replace(/<strong id="proposal-compact-\d+-(air|hotel|car)-segment-title"/g, '<strong id="proposal-compact-segment-title" style="color:#ff2e5f;"');
+            html = html.replace(/<strong id="proposal-enhanced-\d+-(air|hotel|car)-segment-title"/g, '<strong id="proposal-enhanced-segment-title" style="color:#ff2e5f;"');
+            html = html.replace(/(<strong[^>]*>)(Flight|Hotel|Car) Option (\d+)(<\/strong>)/g, '$1<span style="color:#ff2e5f;">$2 Option $3</span>$4');
 
-        // Extract Travel Booker
-        const bookerMatch = bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
-        if (bookerMatch) {
-            info.booker = bookerMatch[1].trim();
-        }
+            // Add spacing
+            if (isCompact) {
+                html = html.replace(/\.proposal-compact-section-table \{([^}]*)\}/g, '.proposal-compact-section-table {$1margin-bottom:30px;}');
+                html = html.replace(/<table([^>]*class="[^"]*proposal-compact-segment-header[^"]*"[^>]*)>/g, function(m, a) {
+                    return a.includes('style=') ? m : '<table' + a + ' style="margin-bottom:20px;">';
+                });
+                html = html.replace(/<table([^>]*class="[^"]*proposal-compact-connected[^"]*"[^>]*)>/g, function(m, a) {
+                    return a.includes('style=') ? m : '<table' + a + ' style="margin-bottom:15px;">';
+                });
+            } else {
+                html = html.replace(/\.proposal-enhanced-section-table \{([^}]*)\}/g, '.proposal-enhanced-section-table {$1margin-bottom:30px;}');
+                html = html.replace(/<table([^>]*class="[^"]*proposal-enhanced-padding[^"]*"[^>]*)>/g, function(m, a) {
+                    return a.includes('style=') ? m : '<table' + a + ' style="padding-top:18px;padding-bottom:18px;">';
+                });
+                html = html.replace(/<table id="proposal-enhanced-(\d+-air-segment-\d+)"([^>]*)>/g, '<table id="proposal-enhanced-$1" style="margin-bottom:20px;"$2>');
+                html = html.replace(/<table id="proposal-enhanced-(\d+-air-segment-\d+-layover)"([^>]*)>/g, '<table id="proposal-enhanced-$1" style="margin-bottom:20px;"$2>');
+                html = html.replace(/<table([^>]*class="[^"]*proposal-enhanced-segment-header[^"]*"[^>]*)>/g, function(m, a) {
+                    return a.includes('style=') ? m : '<table' + a + ' style="margin-bottom:20px;">';
+                });
+            }
 
-        // Check if booking is approved
-        if (bodyText.indexOf('B¥BOOKING AUTHORISED') > -1) {
-            info.approved = true;
-        }
+            // Important notice banner
+            var importantNotice = '<table width="100%" style="margin:20px 0"><tr><td><div style="background:#FFF5F8;border:1px solid #FFCDD9;border-left:4px solid #ff2e5f;padding:14px 18px;border-radius:6px"><strong style="color:#ff2e5f;font-size:13px;display:block;margin-bottom:12px">IMPORTANT NOTICE</strong><ul style="font-style:italic;font-size:11px;margin:0;padding-left:20px;color:#333"><li style="margin-bottom:8px">All prices quoted are subject to change until tickets are issued, even if tentatively holding.</li><li style="margin-bottom:8px">Airlines reserve the right to change surcharges, fare levels and taxes without notice.</li><li>Corporate Traveller fees are not included in your quote, as per schedule of fees, and will be charged at the time of invoicing.</li></ul></div></td></tr></table>';
+            html = html.replace(/(<table id="[^"]*1-air-option"[^>]*>)/i, '$1<tr><td>' + importantNotice + '</td></tr>');
 
-        // Extract H-N- notes
-        const noteMatches = bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
-        for (const match of noteMatches) {
-            info.notes.push(match[1].trim());
-        }
+            // Car rental warning
+            if (hasCarOption) {
+                var carWarning = '<table width="100%" style="margin:20px 0"><tr><td><div style="background:white;border:2px solid #ff9800;border-radius:8px;padding:16px;box-shadow:0 2px 4px rgba(0,0,0,0.1)"><div style="display:flex;gap:12px"><div style="font-size:24px">⚠️</div><div><strong style="color:#ff9800;font-size:13px;display:block;margin-bottom:8px">Car Rental Important Information</strong><br/><ul style="font-size:11px;color:#333;margin:0;padding-left:20px"><li>You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li>Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li>Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></div></div></td></tr></table>';
+                html = html.replace(/(<table id="[^"]*1-car-option"[^>]*>)/i, carWarning + '$1');
+            }
 
-        return info;
+            // Add T&Cs if requested
+            if (includeTCs) {
+                var carTermsDiv = '';
+                if (hasCarOption) {
+                    carTermsDiv = '<div style="background:white;border:2px solid #ff9800;border-radius:8px;padding:16px;margin-bottom:16px;box-shadow:0 2px 4px rgba(0,0,0,0.1)"><strong style="color:#ff9800;font-size:13px;display:block;margin-bottom:8px">Car Rental Important Information</strong><br/><ul style="font-size:11px;color:#333;margin:0;padding-left:20px;margin-bottom:0"><li>You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li>Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li>Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div><div style="border-bottom:1px solid #e8e8e8;margin:16px 0"></div>';
+                }
+                
+                fetch('https://raw.githubusercontent.com/jordan-mcguire/tp-tidy/main/terms-footer.html')
+                    .then(res => res.text())
+                    .then(footer => {
+                        var footerTable = '<table width="100%" class="' + proposalType + '-section-table ' + proposalType + '-content-border" style="margin-top:30px"><tr><td><div style="background:#f8f8f8;border:1px solid #e0e0e0;padding:16px;border-radius:4px">' + carTermsDiv + footer + '</div></td></tr></table>';
+                        html = html.replace(/(<\/td>\s*<\/tr>\s*<\/table>\s*<\/body>)/i, footerTable + '$1');
+                        iframe.setAttribute('srcdoc', html);
+                        alert('Changes applied! You can now click Copy.');
+                    })
+                    .catch(e => {
+                        alert('Error loading T&Cs: ' + e.message);
+                    });
+            } else {
+                iframe.setAttribute('srcdoc', html);
+                alert('Changes applied! You can now click Copy.');
+            }
+
+            return true;
+        } catch (e) {
+            alert('Error: ' + e.message);
+            return false;
+        }
     }
 
-    const bookingInfo = extractBookingInfo();
-
-    // Create approval status HTML
-    let approvalHTML = '';
-    if (bookingInfo.booker) {
-        if (bookingInfo.approved) {
-            approvalHTML = '<div class="approval-status approved">✓ APPROVED</div>';
-        } else {
-            approvalHTML = '<div class="approval-status pending">⏳ PENDING</div>';
-        }
-    }
-
-    // Create booking info display HTML
-    let bookingInfoHTML = '';
-    if (bookingInfo.pnr || bookingInfo.traveller || bookingInfo.company) {
-        bookingInfoHTML = `
-            <div class="booking-info">
-                <div class="booking-info-title">📋 Current Booking</div>
-                $${bookingInfo.pnr ? `<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">$${bookingInfo.pnr}</span></div>` : ''}
-                $${bookingInfo.traveller ? `<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">$${bookingInfo.traveller}</span></div>` : ''}
-                $${bookingInfo.company ? `<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">$${bookingInfo.company}</span></div>` : ''}
-                $${bookingInfo.costCentre ? `<div class="info-row"><span class="info-label">Cost Centre:</span> <span class="info-value">$${bookingInfo.costCentre}</span></div>` : ''}
-                $${bookingInfo.booker ? `<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">$${bookingInfo.booker}</span></div>` : ''}
-                ${approvalHTML}
-            </div>
-        `;
-    }
-
-    // Create notes button if notes exist
-    let notesButtonHTML = '';
-    if (bookingInfo.notes.length > 0) {
-        notesButtonHTML = `<a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a>`;
-    }
-
-    // Create menu
-    var menu = document.createElement('div');
-    menu.id = 'sabreShortcutsMenu';
-    menu.innerHTML = `
-        <div class="menu-header">⚡ Sabre Shortcuts</div>
-        ${bookingInfoHTML}
-        ${bookingInfo.pnr || bookingInfo.traveller ? '<a href="#" class="menu-item" data-action="copyBookingInfo">Copy Booking Info</a>' : ''}
-        ${notesButtonHTML}
-        <a href="#" class="menu-item" data-action="copyPNR">Copy PNR</a>
-        <a href="#" class="menu-item" data-action="viewSerko">View PNR in Serko</a>
-        <a href="#" class="menu-item" data-action="masquerade">Masquerade in YourCT</a>
-        <a href="#" class="menu-item" data-action="tripProposal">Trip Proposal Tidy</a>
-        <div class="close-btn">×</div>
-    `;
-
-    // Add styles
-    var style = document.createElement('style');
-    style.textContent = `
-        #sabreShortcutsMenu {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            width: 280px;
-            background: linear-gradient(135deg, #ff2e5f 0%, #ff6b9d 100%);
-            border-radius: 10px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            padding: 15px;
-            z-index: 999999;
-            font-family: Arial, sans-serif;
-            max-height: 90vh;
-            overflow-y: auto;
-        }
-        .menu-header {
-            color: white;
-            font-weight: bold;
-            font-size: 16px;
-            margin-bottom: 15px;
-            text-align: center;
-            padding-bottom: 10px;
-            border-bottom: 2px solid rgba(255,255,255,0.3);
-            cursor: move;
-        }
-        .booking-info {
-            background: rgba(255,255,255,0.95);
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
-            font-size: 11px;
-        }
-        .booking-info-title {
-            font-weight: bold;
-            color: #ff2e5f;
-            margin-bottom: 8px;
-            font-size: 12px;
-            text-align: center;
-        }
-        .info-row {
-            margin: 5px 0;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-        .info-label {
-            font-weight: 600;
-            color: #555;
-            margin-right: 8px;
-            min-width: 80px;
-        }
-        .info-value {
-            color: #333;
-            text-align: right;
-            word-break: break-word;
-            flex: 1;
-        }
-        .approval-status {
-            margin-top: 10px;
-            padding: 8px;
-            border-radius: 5px;
-            text-align: center;
-            font-weight: bold;
-            font-size: 11px;
-        }
-        .approval-status.approved {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        .approval-status.pending {
-            background: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-        .menu-item {
-            display: block;
-            padding: 10px 15px;
-            margin: 8px 0;
-            background: rgba(255,255,255,0.95);
-            color: #333;
-            text-decoration: none;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-            font-size: 14px;
-            text-align: center;
-            font-weight: 500;
-            cursor: pointer;
-        }
-        .menu-item:hover {
-            background: white;
-            transform: translateX(-3px);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-        .menu-item-alert {
-            background: #fff3cd;
-            border: 2px solid #ff9800;
-            font-weight: 600;
-            animation: pulse 2s infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.8; }
-        }
-        .close-btn {
-            position: absolute;
-            top: 5px;
-            right: 10px;
-            color: white;
-            font-size: 24px;
-            cursor: pointer;
-            line-height: 20px;
-        }
-        .close-btn:hover {
-            color: #ffeb3b;
-        }
-        .notes-modal {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: white;
-            border-radius: 10px;
-            padding: 25px;
-            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            z-index: 1000000;
-            max-width: 500px;
-            width: 90%;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-        .notes-modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0,0,0,0.5);
-            z-index: 999999;
-        }
-        .notes-modal-title {
-            font-size: 18px;
-            font-weight: bold;
-            color: #ff2e5f;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .notes-modal-content {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #ff9800;
-            font-size: 13px;
-            line-height: 1.6;
-            color: #333;
-            white-space: pre-wrap;
-        }
-        .notes-modal-close {
-            background: #ff2e5f;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: bold;
-            margin-top: 15px;
-            width: 100%;
-        }
-        .notes-modal-close:hover {
-            background: #e02850;
-        }
-    `;
-    document.head.appendChild(style);
-    document.body.appendChild(menu);
-
-    // Dragging functionality
-    var isDragging = false, currentX, currentY, initialX, initialY, xOffset = 0, yOffset = 0;
-    var header = menu.querySelector('.menu-header');
-    
-    header.addEventListener('mousedown', function(e) {
-        initialX = e.clientX - xOffset;
-        initialY = e.clientY - yOffset;
-        isDragging = true;
-    });
-
-    document.addEventListener('mousemove', function(e) {
-        if (isDragging) {
-            e.preventDefault();
-            currentX = e.clientX - initialX;
-            currentY = e.clientY - initialY;
-            xOffset = currentX;
-            yOffset = currentY;
-            menu.style.transform = 'translate3d(' + currentX + 'px, ' + currentY + 'px, 0)';
-        }
-    });
-
-    document.addEventListener('mouseup', function() {
-        isDragging = false;
-    });
-
-    // Close button
-    menu.querySelector('.close-btn').addEventListener('click', function() {
-        menu.remove();
-    });
-
-    // Function to copy booking info
-    function copyBookingInfo() {
-        let text = '=== BOOKING INFORMATION ===\n\n';
-        if (bookingInfo.pnr) text += `Sabre PNR: ${bookingInfo.pnr}\n`;
-        if (bookingInfo.traveller) text += `Traveller: ${bookingInfo.traveller}\n`;
-        if (bookingInfo.company) text += `Company: ${bookingInfo.company}\n`;
-        if (bookingInfo.costCentre) text += `Cost Centre: ${bookingInfo.costCentre}\n`;
-        if (bookingInfo.booker) text += `Booker: ${bookingInfo.booker}\n`;
-        if (bookingInfo.booker) {
-            text += `Approval Status: ${bookingInfo.approved ? 'APPROVED' : 'PENDING'}\n`;
-        }
-
-        var temp = document.createElement('textarea');
-        temp.value = text;
-        document.body.appendChild(temp);
-        temp.select();
-        document.execCommand('copy');
-        document.body.removeChild(temp);
-        alert('Booking info copied to clipboard!');
-    }
-
-    // Function to show notes modal
-    function showNotesModal() {
-        const overlay = document.createElement('div');
-        overlay.className = 'notes-modal-overlay';
-        
-        const modal = document.createElement('div');
-        modal.className = 'notes-modal';
-        
-        const notesText = bookingInfo.notes.join('\n');
-        
-        modal.innerHTML = `
-            <div class="notes-modal-title">⚠️ Notes to Agent</div>
-            <div class="notes-modal-content">${notesText}</div>
-            <button class="notes-modal-close">Close</button>
-        `;
-        
-        document.body.appendChild(overlay);
-        document.body.appendChild(modal);
-        
-        modal.querySelector('.notes-modal-close').addEventListener('click', function() {
-            overlay.remove();
-            modal.remove();
-        });
-        
-        overlay.addEventListener('click', function() {
-            overlay.remove();
-            modal.remove();
-        });
-    }
-
-    // Menu item actions
-    menu.querySelectorAll('.menu-item').forEach(function(item) {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            var action = this.getAttribute('data-action');
-
-            if (action === 'copyBookingInfo') {
-                copyBookingInfo();
-            } else if (action === 'viewNotes') {
-                showNotesModal();
-            } else if (action === 'copyPNR') {
-                if (bookingInfo.pnr) {
-                    var temp = document.createElement('textarea');
-                    temp.value = bookingInfo.pnr;
-                    document.body.appendChild(temp);
-                    temp.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(temp);
-                } else {
-                    alert('PNR not found');
+    // Try to tidy proposal, with retry logic
+    if (!tidyProposal()) {
+        var attempts = 0;
+        var retryInterval = setInterval(function() {
+            attempts++;
+            if (tidyProposal() || attempts > 20) {
+                clearInterval(retryInterval);
+                if (attempts > 20) {
+                    alert('Could not find Proposal. Ensure you have clicked Share first.');
                 }
             }
+        }, 500);
+    }
+})();
