@@ -180,9 +180,10 @@
             });
         });
     }
-    attachEventListeners();
+attachEventListeners();
 
-    setInterval(function() {
+    // Use MutationObserver to detect page changes
+    const observer = new MutationObserver(function(mutations) {
         const newBookingInfo = extractBookingInfo();
         if (newBookingInfo.pnr && newBookingInfo.pnr !== lastKnownPNR) {
             console.log('PNR changed from', lastKnownPNR, 'to', newBookingInfo.pnr);
@@ -191,6 +192,13 @@
             menu.innerHTML = buildMenuContent(currentBookingInfo);
             attachEventListeners();
         }
-    }, 2000);
+    });
+
+    // Observe the entire body for changes
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
 
 })();
