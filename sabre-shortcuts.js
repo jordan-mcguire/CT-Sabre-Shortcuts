@@ -7,7 +7,7 @@ return;
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
-let info={pnr:'',traveller:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:''};
+let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:''};
 
 for(let i=0;i<lines.length;i++){
 const text=lines[i].innerText.trim();
@@ -18,7 +18,14 @@ break;
 }
 
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
-if(travellerMatch)info.traveller=travellerMatch[1].trim();
+if(travellerMatch){
+info.traveller=travellerMatch[1].trim();
+const nameParts=info.traveller.split('/');
+if(nameParts.length>=2){
+info.surname=nameParts[0].trim();
+info.firstname=nameParts[1].trim();
+}
+}
 
 const companyMatch=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);
 if(companyMatch)info.company=companyMatch[1].trim();
@@ -34,12 +41,12 @@ if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
 const noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
 for(const match of noteMatches)info.notes.push(match[1].trim());
 
-const emailMatch=bodyText.match(/E¥PAX-([^\s\n]+)/);
+const emailMatch=bodyText.match(/E¥PAX-([^\n]+)/);
 if(emailMatch){
 info.email=emailMatch[1].replace(/\.\./g,'_').replace(/¤/g,'@').trim();
 }
 
-const phoneMatch=bodyText.match(/P¥PAX-([^\s\n]+)/);
+const phoneMatch=bodyText.match(/P¥PAX-([^\n]+)/);
 if(phoneMatch){
 info.phone=phoneMatch[1].trim();
 }
@@ -72,7 +79,7 @@ bookingInfoHTML='<div class="booking-info">'
 
 let notesButtonHTML='';
 if(info.notes.length>0){
-notesButtonHTML='<div class="notes-container"><a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a><div class="notes-dropdown" style="display:none;"><div class="notes-dropdown-content">'+info.notes.join('<br>')+'</div></div></div>';
+notesButtonHTML='<div class="notes-container"><a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a><div class="notes-dropdown"><div class="notes-dropdown-content">'+info.notes.join('<br>')+'</div></div></div>';
 }
 
 let travellerDetailsHTML='';
@@ -124,8 +131,8 @@ menu.id='sabreShortcutsMenu';
 menu.innerHTML=buildMenuHTML(currentBookingInfo);
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:280px;background:#00434e;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
-+'.menu-header{color:white;font-size:10px;text-align:center;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3)}'
+style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
++'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3)}'
 +'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
 +'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
 +'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
@@ -145,7 +152,8 @@ style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:
 +'.button-row{display:flex;gap:6px;margin:6px 0}'
 +'.menu-item-half{flex:1;margin:0}'
 +'.notes-container{position:relative;margin:6px 0}'
-+'.notes-dropdown{background:white;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);margin-top:4px;overflow:hidden}'
++'.notes-dropdown{max-height:0;overflow:hidden;transition:max-height 0.3s ease;background:white;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);margin-top:4px}'
++'.notes-dropdown.open{max-height:300px}'
 +'.notes-dropdown-content{padding:12px;background:#f8f9fa;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.5;color:#333;max-height:200px;overflow-y:auto}'
 +'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
 +'.close-btn:hover{color:#ffeb3b}';
@@ -204,9 +212,10 @@ document.body.removeChild(temp);
 
 function copyTravellerDetails(){
 let text='';
-if(currentBookingInfo.traveller)text+='Name: '+currentBookingInfo.traveller+'\n';
-if(currentBookingInfo.email)text+='Email: '+currentBookingInfo.email+'\n';
-if(currentBookingInfo.phone)text+='Phone: '+currentBookingInfo.phone+'\n';
+text+='Guest Surname: '+(currentBookingInfo.surname||'Not Found')+'\n';
+text+='Guest First Name: '+(currentBookingInfo.firstname||'Not Found')+'\n';
+text+='Phone Number: '+(currentBookingInfo.phone||'Not Found')+'\n';
+text+='Email Address: '+(currentBookingInfo.email||'Not Found')+'\n';
 var temp=document.createElement('textarea');
 temp.value=text.trim();
 document.body.appendChild(temp);
@@ -222,11 +231,7 @@ e.preventDefault();
 e.stopPropagation();
 var dropdown=this.parentElement.querySelector('.notes-dropdown');
 if(dropdown){
-if(dropdown.style.display==='none'||dropdown.style.display===''){
-dropdown.style.display='block';
-}else{
-dropdown.style.display='none';
-}
+dropdown.classList.toggle('open');
 }
 });
 }
@@ -234,7 +239,7 @@ dropdown.style.display='none';
 document.addEventListener('click',function(e){
 var notesDropdown=menuElement.querySelector('.notes-dropdown');
 if(notesDropdown&&!e.target.closest('.notes-container')){
-notesDropdown.style.display='none';
+notesDropdown.classList.remove('open');
 }
 });
 
