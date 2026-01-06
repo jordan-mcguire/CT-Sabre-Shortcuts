@@ -11,10 +11,14 @@ let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',boo
 
 for(let i=0;i<lines.length;i++){
 const text=lines[i].innerText.trim();
-if(text.length===6&&/^[A-Z]{6}$/i.test(text)){
+if(text.length===6&&/^[A-Z]{6}$/i.test(text)&&text!=='PHONES'){
 info.pnr=text;
 break;
 }
+}
+
+if(!info.pnr||info.pnr===''){
+info.pnr='TBA';
 }
 
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
