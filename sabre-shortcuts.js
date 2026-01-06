@@ -82,7 +82,7 @@ bookingInfoHTML='<div class="booking-info">'
 
 let notesButtonHTML='';
 if(info.notes.length>0){
-notesButtonHTML='<a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a>';
+notesButtonHTML='<a href="#" class="menu-item menu-item-alert" data-action="viewNotes" id="notesButton">⚠️ Notes to Agent Found</a>';
 }
 
 let copyRowHTML='<div class="copy-row"><span class="copy-row-label">COPY:</span>'
@@ -131,9 +131,12 @@ observer.observe(responseArea,{childList:true,subtree:true,characterData:true});
 var menu=document.createElement('div');
 menu.id='sabreShortcutsMenu';
 menu.innerHTML=buildMenuHTML(currentBookingInfo);
+menu.style.bottom='20px';
+menu.style.right='20px';
+menu.style.top='auto';
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
+style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
 +'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3)}'
 +'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
 +'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
@@ -159,7 +162,7 @@ style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:
 +'.menu-item-half{flex:1;margin:0}'
 +'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
 +'.close-btn:hover{color:#ffeb3b}'
-+'#sabreNotesPopup{position:fixed;top:20px;right:320px;width:300px;background:white;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);padding:15px;z-index:1000000;font-family:Aptos,Arial,sans-serif}'
++'#sabreNotesPopup{position:fixed;width:300px;background:white;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);padding:15px;z-index:1000000;font-family:Aptos,Arial,sans-serif}'
 +'.notes-popup-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #ff9800}'
 +'.notes-popup-title{font-size:14px;font-weight:bold;color:#ff2e5f;display:flex;align-items:center;gap:8px}'
 +'.notes-popup-close{background:none;border:none;font-size:24px;color:#999;cursor:pointer;padding:0;line-height:1}'
@@ -171,6 +174,7 @@ document.body.appendChild(menu);
     function attachEventListeners(){
 var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
+var notesPopup=null;
 
 menuElement.addEventListener('mousedown',function(e){
 if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
@@ -187,6 +191,9 @@ currentY=e.clientY-initialY;
 xOffset=currentX;
 yOffset=currentY;
 menuElement.style.transform='translate3d('+currentX+'px, '+currentY+'px, 0)';
+if(notesPopup){
+notesPopup.style.transform='translate3d('+currentX+'px, '+currentY+'px, 0)';
+}
 }
 });
 
@@ -194,7 +201,10 @@ document.addEventListener('mouseup',function(){isDragging=false;});
 
 var closeBtn=menuElement.querySelector('.close-btn');
 if(closeBtn){
-closeBtn.addEventListener('click',function(){menuElement.remove();});
+closeBtn.addEventListener('click',function(){
+menuElement.remove();
+if(notesPopup)notesPopup.remove();
+});
 }
 
 var copyBtn=menuElement.querySelector('.copy-btn');
@@ -270,14 +280,30 @@ document.body.removeChild(temp);
 }
 
 function showNotesPopup(){
-if(document.getElementById('sabreNotesPopup'))return;
+if(document.getElementById('sabreNotesPopup')){
+document.getElementById('sabreNotesPopup').remove();
+notesPopup=null;
+return;
+}
 const popup=document.createElement('div');
 popup.id='sabreNotesPopup';
 const notesText=currentBookingInfo.notes.join('<br>');
 popup.innerHTML='<div class="notes-popup-header"><div class="notes-popup-title">⚠️ Notes to Agent</div><button class="notes-popup-close">×</button></div><div class="notes-popup-content">'+notesText+'</div>';
 document.body.appendChild(popup);
+notesPopup=popup;
+
+const notesButton=document.getElementById('notesButton');
+const menuRect=menuElement.getBoundingClientRect();
+const buttonRect=notesButton.getBoundingClientRect();
+popup.style.right=(window.innerWidth-menuRect.left)+'px';
+popup.style.top=buttonRect.top+'px';
+if(xOffset||yOffset){
+popup.style.transform='translate3d('+xOffset+'px, '+yOffset+'px, 0)';
+}
+
 popup.querySelector('.notes-popup-close').addEventListener('click',function(){
 popup.remove();
+notesPopup=null;
 });
 }
 
