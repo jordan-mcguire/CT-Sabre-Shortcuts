@@ -1,364 +1,427 @@
-(function(){
-if(document.getElementById('sabreShortcutsMenu')){
-document.getElementById('sabreShortcutsMenu').remove();
-return;
-}
+javascript:(function() {
+    const CACHE_DURATION = 5 * 60 * 1000;
+    const CHECK_INTERVAL = 2000;
 
-function extractBookingInfo(){
-const bodyText=document.body.innerText;
-const lines=document.querySelectorAll('.dn-line.text-line');
-let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:''};
+    let overlay = document.getElementById('pnrCacheOverlay');
+    let isCollapsed = false; // Track collapse state in memory
+    
+    if (overlay) {
+        overlay.remove();
+        return;
+    }
 
-let passengerLineIndex=-1;
-for(let i=0;i<lines.length;i++){
-const text=lines[i].innerText.trim();
-if(text.startsWith('1.1')){
-passengerLineIndex=i;
-break;
-}
-}
+    const style = document.createElement('style');
+    style.textContent = `
+        #pnrCacheOverlay {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 0;
+            min-width: 400px;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10000;
+            font-family: Arial, sans-serif;
+            cursor: move;
+            display: flex;
+            flex-direction: column;
+        }
+        #pnrCacheOverlay.expand-upward {
+            flex-direction: column-reverse;
+        }
+        #pnrCacheOverlay-header {
+            background: #333;
+            color: white;
+            padding: 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: move;
+            user-select: none;
+        }
+        #pnrCacheOverlay-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #pnrCacheOverlay-header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        #pnrCacheOverlay-collapse {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        #pnrCacheOverlay-collapse:hover {
+            opacity: 0.7;
+        }
+        #pnrCacheOverlay-close {
+            background: #d9534f;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            line-height: 1;
+        }
+        #pnrCacheOverlay-close:hover {
+            background: #c9302c;
+        }
+        #pnrCacheOverlay-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        #pnrCacheOverlay-content.collapsed {
+            max-height: 0;
+        }
+        #pnrCacheOverlay-content.expanded {
+            max-height: 2000px;
+        }
+        #pnrCacheOverlay-inner {
+            padding: 15px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .pnr-info {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .pnr-info:last-child {
+            border-bottom: none;
+        }
+        .pnr-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .pnr-value {
+            color: #666;
+            font-family: 'Courier New', monospace;
+            background: #f5f5f5;
+            padding: 8px;
+            border-radius: 4px;
+            word-break: break-all;
+        }
+        .pnr-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        .pnr-button {
+            flex: 1;
+            padding: 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        .copy-button {
+            background: #5cb85c;
+            color: white;
+        }
+        .copy-button:hover {
+            background: #4cae4c;
+        }
+        .copy-button.copied {
+            background: #4cae4c;
+        }
+        .clear-button {
+            background: #d9534f;
+            color: white;
+        }
+        .clear-button:hover {
+            background: #c9302c;
+        }
+        .status-message {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-style: italic;
+        }
+    `;
+    document.head.appendChild(style);
 
-if(passengerLineIndex>0){
-for(let i=0;i<passengerLineIndex;i++){
-const text=lines[i].innerText.trim();
-if(text.length===6&&/^[A-Z]{6}$/i.test(text)){
-info.pnr=text;
-break;
-}
-}
-}
+    overlay = document.createElement('div');
+    overlay.id = 'pnrCacheOverlay';
+    
+    const header = document.createElement('div');
+    header.id = 'pnrCacheOverlay-header';
+    
+    const headerLeft = document.createElement('div');
+    headerLeft.id = 'pnrCacheOverlay-header-left';
+    
+    const collapseBtn = document.createElement('button');
+    collapseBtn.id = 'pnrCacheOverlay-collapse';
+    collapseBtn.innerHTML = '▼';
+    collapseBtn.title = 'Collapse';
+    
+    const title = document.createElement('span');
+    title.textContent = 'Active Listener';
+    
+    headerLeft.appendChild(collapseBtn);
+    headerLeft.appendChild(title);
+    
+    const headerRight = document.createElement('div');
+    headerRight.id = 'pnrCacheOverlay-header-right';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'pnrCacheOverlay-close';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = 'Close';
+    
+    headerRight.appendChild(closeBtn);
+    
+    header.appendChild(headerLeft);
+    header.appendChild(headerRight);
+    
+    const content = document.createElement('div');
+    content.id = 'pnrCacheOverlay-content';
+    content.className = 'expanded';
+    
+    const inner = document.createElement('div');
+    inner.id = 'pnrCacheOverlay-inner';
+    
+    content.appendChild(inner);
+    overlay.appendChild(header);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
 
-if(!info.pnr||info.pnr===''){
-info.pnr='TBA';
-}
+    let isDragging = false;
+    let currentX;
+    let currentY;
+    let initialX;
+    let initialY;
+    let xOffset = 0;
+    let yOffset = 0;
 
-const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
-if(travellerMatch){
-info.traveller=travellerMatch[1].trim();
-const nameParts=info.traveller.split('/');
-if(nameParts.length>=2){
-info.surname=nameParts[0].trim();
-info.firstname=nameParts[1].trim();
-}
-}
+    function dragStart(e) {
+        if (e.target === closeBtn || e.target === collapseBtn) {
+            return;
+        }
+        
+        if (e.type === "touchstart") {
+            initialX = e.touches[0].clientX - xOffset;
+            initialY = e.touches[0].clientY - yOffset;
+        } else {
+            initialX = e.clientX - xOffset;
+            initialY = e.clientY - yOffset;
+        }
 
-const companyMatch=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);
-if(companyMatch)info.company=companyMatch[1].trim();
+        if (e.target === header || e.target === headerLeft || e.target === title) {
+            isDragging = true;
+        }
+    }
 
-const luminaMatch=bodyText.match(/L¥LUMINA ID-(\d+)/);
-if(luminaMatch)info.luminaId=luminaMatch[1].trim();
+    function dragEnd(e) {
+        initialX = currentX;
+        initialY = currentY;
+        isDragging = false;
+    }
 
-const bookerMatch=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
-if(bookerMatch)info.booker=bookerMatch[1].trim();
+    function drag(e) {
+        if (isDragging) {
+            e.preventDefault();
+            
+            if (e.type === "touchmove") {
+                currentX = e.touches[0].clientX - initialX;
+                currentY = e.touches[0].clientY - initialY;
+            } else {
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+            }
 
-if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
+            xOffset = currentX;
+            yOffset = currentY;
 
-const noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
-for(const match of noteMatches)info.notes.push(match[1].trim());
+            setTranslate(currentX, currentY, overlay);
+        }
+    }
 
-const emailMatch=bodyText.match(/E¥PAX-([^\n]+)/);
-if(emailMatch){
-info.email=emailMatch[1].replace(/\.\./g,'_').replace(/¤/g,'@').trim();
-}
+    function setTranslate(xPos, yPos, el) {
+        el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
+    }
 
-const phoneMatch=bodyText.match(/P¥PAX-([^\n]+)/);
-if(phoneMatch){
-info.phone=phoneMatch[1].trim();
-}
+    header.addEventListener("mousedown", dragStart, false);
+    document.addEventListener("mouseup", dragEnd, false);
+    document.addEventListener("mousemove", drag, false);
+    header.addEventListener("touchstart", dragStart, false);
+    document.addEventListener("touchend", dragEnd, false);
+    document.addEventListener("touchmove", drag, false);
 
-return info;
-}
+    closeBtn.addEventListener('click', () => {
+        overlay.remove();
+    });
 
-let currentBookingInfo=extractBookingInfo();
-let lastKnownPNR=currentBookingInfo.pnr;
+    collapseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isCollapsed = !isCollapsed;
+        
+        if (isCollapsed) {
+            // Determine expand direction based on position
+            const rect = overlay.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const overlayMiddle = rect.top + (rect.height / 2);
+            
+            if (overlayMiddle > viewportHeight / 2) {
+                overlay.classList.add('expand-upward');
+            } else {
+                overlay.classList.remove('expand-upward');
+            }
+            
+            content.classList.remove('expanded');
+            content.classList.add('collapsed');
+            collapseBtn.innerHTML = '▲';
+            collapseBtn.title = 'Expand';
+        } else {
+            content.classList.remove('collapsed');
+            content.classList.add('expanded');
+            collapseBtn.innerHTML = '▼';
+            collapseBtn.title = 'Collapse';
+        }
+    });
 
-function buildMenuHTML(info){
-let approvalHTML='';
-if(info.booker){
-approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</div>':'<div class="approval-status pending">⏳ PENDING</div>';
-}
+    function extractPNR() {
+        const scripts = document.getElementsByTagName('script');
+        for (let script of scripts) {
+            const content = script.textContent;
+            if (content.includes('lblRecLoc')) {
+                const match = content.match(/lblRecLoc['"]\s*(?:id|name)=[^>]*>([A-Z0-9]{6})</i);
+                if (match) return match[1];
+            }
+        }
 
-let bookingInfoHTML='';
-if(info.pnr||info.traveller||info.company){
-bookingInfoHTML='<div class="booking-info">'
-+'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>'
-+(info.pnr?'<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>':'')
-+(info.luminaId?'<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>':'')
-+(info.pnr||info.luminaId?'<div class="info-divider"></div>':'')
-+(info.traveller?'<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>':'')
-+(info.company?'<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>':'')
-+(info.booker?'<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>':'')
-+approvalHTML
-+'</div>';
-}
+        const labels = document.querySelectorAll('[id*="lblRecLoc"], [name*="lblRecLoc"]');
+        for (let label of labels) {
+            const text = label.textContent.trim();
+            if (/^[A-Z0-9]{6}$/.test(text)) return text;
+        }
 
-let notesHTML='';
-if(info.notes.length>0){
-notesHTML='<div class="notes-container">'
-+'<a href="#" class="menu-item menu-item-alert" data-action="toggleNotes">⚠️ Notes to Agent Found</a>'
-+'<div class="notes-collapsible">'
-+'<div class="notes-collapsible-content">'+info.notes.join('<br>')+'</div>'
-+'</div>'
-+'</div>';
-}
+        const bodyText = document.body.innerText;
+        const pnrMatch = bodyText.match(/(?:PNR|Record Locator|Confirmation)[\s:]+([A-Z0-9]{6})/i);
+        if (pnrMatch) return pnrMatch[1];
 
-let copyRowHTML='<div class="copy-row"><span class="copy-row-label">COPY:</span>'
-+'<a href="#" class="copy-row-btn" data-action="copyPNR">📋 PNR</a>'
-+'<a href="#" class="copy-row-btn" data-action="copyLuminaId">☑️ Lumina</a>';
-if(info.email||info.phone){
-copyRowHTML+='<a href="#" class="copy-row-btn" data-action="copyContact">📞 Contact</a>';
-}
-copyRowHTML+='</div>';
+        return null;
+    }
 
-return '<div class="menu-header">CT SABRE SHORTCUTS</div>'
-+bookingInfoHTML
-+copyRowHTML
-+notesHTML
-+'<div class="button-row">'
-+'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
-+'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
-+'</div>'
-+'<a href="#" class="menu-item" data-action="tripProposal">Trip Proposal Tidy</a>'
-+'<div class="close-btn">×</div>';
-}
+    function getFromCache(key) {
+        const item = localStorage.getItem(key);
+        if (!item) return null;
+        
+        const data = JSON.parse(item);
+        if (Date.now() - data.timestamp > CACHE_DURATION) {
+            localStorage.removeItem(key);
+            return null;
+        }
+        
+        return data.value;
+    }
 
-function updateMenu(){
-currentBookingInfo=extractBookingInfo();
-var menu=document.getElementById('sabreShortcutsMenu');
-if(menu){
-menu.innerHTML=buildMenuHTML(currentBookingInfo);
-attachEventListeners();
-}
-}
+    function saveToCache(key, value) {
+        const data = {
+            value: value,
+            timestamp: Date.now()
+        };
+        localStorage.setItem(key, JSON.stringify(data));
+    }
 
-const observer=new MutationObserver(function(mutations){
-const newInfo=extractBookingInfo();
-if(newInfo.pnr&&newInfo.pnr!==lastKnownPNR){
-console.log('PNR changed from',lastKnownPNR,'to',newInfo.pnr);
-lastKnownPNR=newInfo.pnr;
-updateMenu();
-}
-});
+    function copyToClipboard(text, button) {
+        navigator.clipboard.writeText(text).then(() => {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        });
+    }
 
-const responseArea=document.querySelector('.area-out');
-if(responseArea){
-observer.observe(responseArea,{childList:true,subtree:true,characterData:true});
-}
+    function updateDisplay(pnr, token) {
+        const tokenPreview = token ? `${token.substring(0, 20)}...` : 'Not found';
+        
+        inner.innerHTML = `
+            <div class="pnr-info">
+                <div class="pnr-label">PNR:</div>
+                <div class="pnr-value">${pnr || 'Not found'}</div>
+            </div>
+            <div class="pnr-info">
+                <div class="pnr-label">Auth Token:</div>
+                <div class="pnr-value" style="font-size: 11px;">${tokenPreview}</div>
+            </div>
+            <div class="pnr-buttons">
+                <button class="pnr-button copy-button" id="copyPNR">Copy PNR</button>
+                <button class="pnr-button copy-button" id="copyToken">Copy Token</button>
+                <button class="pnr-button clear-button" id="clearCache">Clear Cache</button>
+            </div>
+        `;
 
-var menu=document.createElement('div');
-menu.id='sabreShortcutsMenu';
-menu.innerHTML=buildMenuHTML(currentBookingInfo);
-menu.style.bottom='20px';
-menu.style.right='20px';
-menu.style.top='auto';
+        if (pnr) {
+            document.getElementById('copyPNR').addEventListener('click', function() {
+                copyToClipboard(pnr, this);
+            });
+        }
 
-var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
-+'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3)}'
-+'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
-+'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
-+'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
-+'.copy-btn{background:#fff3cd;color:#ff2e5f;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #ffd700}'
-+'.copy-btn:hover{background:#ffe066}'
-+'.info-row{margin:4px 0;display:flex;justify-content:space-between;align-items:flex-start}'
-+'.info-label{font-weight:600;color:#555;margin-right:8px;min-width:70px;font-size:10px}'
-+'.info-value{color:#333;text-align:right;word-break:break-word;flex:1;font-size:10px}'
-+'.info-divider{height:1px;background:#ddd;margin:8px 0}'
-+'.approval-status{margin-top:8px;padding:6px;border-radius:5px;text-align:center;font-weight:bold;font-size:10px}'
-+'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
-+'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
-+'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
-+'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
-+'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
-+'.copy-row-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
-+'.menu-item{display:block;padding:8px 12px;margin:6px 0;background:rgba(255,255,255,0.95);color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer}'
-+'.menu-item:hover{background:white;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
-+'.menu-item-alert{background:#fff3cd;border:2px solid #ff9800;font-weight:600;animation:pulse 2s infinite}'
-+'@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.8}}'
-+'.button-row{display:flex;gap:6px;margin:6px 0}'
-+'.menu-item-half{flex:1;margin:0}'
-+'.notes-container{margin:6px 0}'
-+'.notes-collapsible{max-height:0;overflow:hidden;transition:max-height 0.3s ease-out}'
-+'.notes-collapsible.expanded{max-height:500px}'
-+'.notes-collapsible-content{background:#f8f9fa;padding:12px;margin-top:6px;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333}'
-+'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
-+'.close-btn:hover{color:#ffeb3b}';
+        if (token) {
+            document.getElementById('copyToken').addEventListener('click', function() {
+                copyToClipboard(token, this);
+            });
+        }
 
-document.head.appendChild(style);
-document.body.appendChild(menu);
-    function attachEventListeners(){
-var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
-var menuElement=document.getElementById('sabreShortcutsMenu');
+        document.getElementById('clearCache').addEventListener('click', () => {
+            if (pnr) localStorage.removeItem(`pnr_${pnr}`);
+            localStorage.removeItem('auth_token');
+            updateDisplay(pnr, null);
+        });
+    }
 
-menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
-initialX=e.clientX-xOffset;
-initialY=e.clientY-yOffset;
-isDragging=true;
-});
+    function checkForUpdates() {
+        const pnr = extractPNR();
+        
+        if (!pnr) {
+            inner.innerHTML = '<div class="status-message">No PNR detected on this page</div>';
+            return;
+        }
 
-document.addEventListener('mousemove',function(e){
-if(isDragging){
-e.preventDefault();
-currentX=e.clientX-initialX;
-currentY=e.clientY-initialY;
-xOffset=currentX;
-yOffset=currentY;
-menuElement.style.transform='translate3d('+currentX+'px, '+currentY+'px, 0)';
-}
-});
+        let token = getFromCache(`pnr_${pnr}`);
+        
+        if (!token) {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name.includes('auth') || name.includes('token') || name.includes('session')) {
+                    token = value;
+                    saveToCache(`pnr_${pnr}`, token);
+                    break;
+                }
+            }
+        }
 
-document.addEventListener('mouseup',function(){isDragging=false;});
+        updateDisplay(pnr, token);
+    }
 
-var closeBtn=menuElement.querySelector('.close-btn');
-if(closeBtn){
-closeBtn.addEventListener('click',function(){menuElement.remove();});
-}
-
-var copyBtn=menuElement.querySelector('.copy-btn');
-if(copyBtn){
-copyBtn.addEventListener('click',function(e){
-e.stopPropagation();
-copyBookingInfoRich();
-});
-}
-
-async function copyBookingInfoRich(){
-let htmlText='<div>';
-if(currentBookingInfo.luminaId)htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
-if(currentBookingInfo.pnr)htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
-if(currentBookingInfo.traveller)htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
-htmlText+='</div>';
-
-let plainText='';
-if(currentBookingInfo.luminaId)plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
-if(currentBookingInfo.pnr)plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
-if(currentBookingInfo.traveller)plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
-
-try{
-const blob=new Blob([htmlText],{type:'text/html'});
-const blobPlain=new Blob([plainText.trim()],{type:'text/plain'});
-await navigator.clipboard.write([
-new ClipboardItem({
-'text/html':blob,
-'text/plain':blobPlain
-})
-]);
-}catch(err){
-var temp=document.createElement('textarea');
-temp.value=plainText.trim();
-document.body.appendChild(temp);
-temp.select();
-document.execCommand('copy');
-document.body.removeChild(temp);
-}
-}
-
-async function copyContactDetailsRich(){
-let htmlText='<div>';
-htmlText+='<p><strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'</p>';
-htmlText+='<p><strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'</p>';
-htmlText+='<p><strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'</p>';
-htmlText+='<p><strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'</p>';
-htmlText+='</div>';
-
-let plainText='';
-plainText+='Guest Surname: '+(currentBookingInfo.surname||'Not Found')+'\n';
-plainText+='Guest First Name: '+(currentBookingInfo.firstname||'Not Found')+'\n';
-plainText+='Phone Number: '+(currentBookingInfo.phone||'Not Found')+'\n';
-plainText+='Email Address: '+(currentBookingInfo.email||'Not Found')+'\n';
-
-try{
-const blob=new Blob([htmlText],{type:'text/html'});
-const blobPlain=new Blob([plainText.trim()],{type:'text/plain'});
-await navigator.clipboard.write([
-new ClipboardItem({
-'text/html':blob,
-'text/plain':blobPlain
-})
-]);
-}catch(err){
-var temp=document.createElement('textarea');
-temp.value=plainText.trim();
-document.body.appendChild(temp);
-temp.select();
-document.execCommand('copy');
-document.body.removeChild(temp);
-}
-}
-
-var toggleNotesBtn=menuElement.querySelector('[data-action="toggleNotes"]');
-if(toggleNotesBtn){
-toggleNotesBtn.addEventListener('click',function(e){
-e.preventDefault();
-var collapsible=this.parentElement.querySelector('.notes-collapsible');
-if(collapsible){
-collapsible.classList.toggle('expanded');
-}
-});
-}
-
-menuElement.querySelectorAll('.copy-row-btn, .menu-item').forEach(function(item){
-item.addEventListener('click',function(e){
-e.preventDefault();
-var action=this.getAttribute('data-action');
-
-if(action==='copyContact'){
-copyContactDetailsRich();
-}else if(action==='toggleNotes'){
-// Handled above
-}else if(action==='copyPNR'){
-if(currentBookingInfo.pnr){
-var temp=document.createElement('textarea');
-temp.value=currentBookingInfo.pnr;
-document.body.appendChild(temp);
-temp.select();
-document.execCommand('copy');
-document.body.removeChild(temp);
-}else{
-alert('PNR not found');
-}
-}else if(action==='copyLuminaId'){
-if(currentBookingInfo.luminaId){
-var temp=document.createElement('textarea');
-temp.value=currentBookingInfo.luminaId;
-document.body.appendChild(temp);
-temp.select();
-document.execCommand('copy');
-document.body.removeChild(temp);
-}else{
-alert('No Lumina ID found - please download your booking');
-}
-}else if(action==='viewSerko'){
-const pattern=/Q¥QUOTE NUMBER\s*-\s*(\d+)/;
-const bodyText=document.body.innerText;
-const match=bodyText.match(pattern);
-if(match&&match[1]){
-const quoteNum=match[1];
-const url='https://serko.au.fcm.travel/Web/Booking/Detail/'+quoteNum;
-window.open(url,'_blank');
-}else{
-alert('Quote number not found!');
-}
-}else if(action==='masquerade'){
-const pattern=/U62-([A-F0-9-]+)/i;
-const bodyText=document.body.innerText;
-const match=bodyText.match(pattern);
-if(match&&match[1]){
-const guid=match[1];
-const url='https://agentport.fcm.travel/SamlService/AgentToClientSsoTraveler/'+guid;
-window.open(url,'_blank');
-}else{
-alert('Agentport or YourCT profile not found. This could be a profile that only exists in Lumina, or a guest traveller.');
-}
-}else if(action==='tripProposal'){
-var script=document.createElement('script');
-script.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
-document.body.appendChild(script);
-}
-});
-});
-}
-
-attachEventListeners();
+    checkForUpdates();
+    setInterval(checkForUpdates, CHECK_INTERVAL);
 })();
