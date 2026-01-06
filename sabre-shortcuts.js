@@ -34,14 +34,14 @@ if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
 const noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
 for(const match of noteMatches)info.notes.push(match[1].trim());
 
-const emailMatch=bodyText.match(/APE-([^\s\n]+)/);
+const emailMatch=bodyText.match(/E¥PAX-([^\s\n]+)/);
 if(emailMatch){
-info.email=emailMatch[1].replace(/¥/g,'@').replace(/§/g,'.').trim();
+info.email=emailMatch[1].replace(/\.\./g,'_').replace(/¤/g,'@').trim();
 }
 
-const phoneMatch=bodyText.match(/APM-([^\s\n]+)/);
+const phoneMatch=bodyText.match(/P¥PAX-([^\s\n]+)/);
 if(phoneMatch){
-info.phone=phoneMatch[1].replace(/-/g,' ').trim();
+info.phone=phoneMatch[1].trim();
 }
 
 return info;
@@ -59,7 +59,7 @@ approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</
 let bookingInfoHTML='';
 if(info.pnr||info.traveller||info.company){
 bookingInfoHTML='<div class="booking-info">'
-+'<div class="booking-info-title">📋 Current Booking <span class="copy-hover-btn" title="Copy booking info">📋</span></div>'
++'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>'
 +(info.pnr?'<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>':'')
 +(info.luminaId?'<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>':'')
 +(info.pnr||info.luminaId?'<div class="info-divider"></div>':'')
@@ -80,7 +80,7 @@ if(info.email||info.phone){
 travellerDetailsHTML='<a href="#" class="menu-item" data-action="copyTravellerDetails">Copy Traveller Details</a>';
 }
 
-return '<div class="menu-header-spacer"></div>'
+return '<div class="menu-header">CT SABRE SHORTCUTS</div>'
 +bookingInfoHTML
 +travellerDetailsHTML
 +notesButtonHTML
@@ -125,12 +125,12 @@ menu.innerHTML=buildMenuHTML(currentBookingInfo);
 
 var style=document.createElement('style');
 style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:280px;background:#00434e;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:12px;z-index:999999;font-family:Arial,sans-serif;max-height:90vh;overflow-y:auto;cursor:move}'
-+'.menu-header-spacer{height:20px;position:relative}'
++'.menu-header{color:white;font-size:10px;text-align:center;padding-bottom:8px;margin-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.3)}'
 +'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
-+'.booking-info-title{font-weight:bold;color:#00434e;margin-bottom:8px;font-size:11px;text-align:center;position:relative}'
-+'.copy-hover-btn{position:absolute;right:0;top:50%;transform:translateY(-50%);cursor:pointer;opacity:0;transition:opacity 0.3s;font-size:14px}'
-+'.booking-info-title:hover .copy-hover-btn{opacity:1}'
-+'.copy-hover-btn:hover{transform:translateY(-50%) scale(1.2)}'
++'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
++'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
++'.copy-btn{background:#fff3cd;color:#ff2e5f;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #ffd700}'
++'.copy-btn:hover{background:#ffe066}'
 +'.info-row{margin:4px 0;display:flex;justify-content:space-between;align-items:flex-start}'
 +'.info-label{font-weight:600;color:#555;margin-right:8px;min-width:70px;font-size:10px}'
 +'.info-value{color:#333;text-align:right;word-break:break-word;flex:1;font-size:10px}'
@@ -144,8 +144,8 @@ style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:
 +'@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.8}}'
 +'.button-row{display:flex;gap:6px;margin:6px 0}'
 +'.menu-item-half{flex:1;margin:0}'
-+'.notes-container{position:relative}'
-+'.notes-dropdown{position:absolute;top:100%;left:0;right:0;background:white;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);z-index:10;margin-top:4px}'
++'.notes-container{position:relative;margin:6px 0}'
++'.notes-dropdown{background:white;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);margin-top:4px;overflow:hidden}'
 +'.notes-dropdown-content{padding:12px;background:#f8f9fa;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.5;color:#333;max-height:200px;overflow-y:auto}'
 +'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
 +'.close-btn:hover{color:#ffeb3b}';
@@ -157,7 +157,7 @@ var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-hover-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -181,9 +181,9 @@ if(closeBtn){
 closeBtn.addEventListener('click',function(){menuElement.remove();});
 }
 
-var copyHoverBtn=menuElement.querySelector('.copy-hover-btn');
-if(copyHoverBtn){
-copyHoverBtn.addEventListener('click',function(e){
+var copyBtn=menuElement.querySelector('.copy-btn');
+if(copyBtn){
+copyBtn.addEventListener('click',function(e){
 e.stopPropagation();
 copyBookingInfo();
 });
@@ -191,14 +191,11 @@ copyBookingInfo();
 
 function copyBookingInfo(){
 let text='';
-if(currentBookingInfo.pnr)text+='Sabre PNR: '+currentBookingInfo.pnr+'\n';
+if(currentBookingInfo.pnr)text+='GDS Ref: '+currentBookingInfo.pnr+'\n';
+if(currentBookingInfo.luminaId)text+='CT Booking Number: '+currentBookingInfo.luminaId+'\n';
 if(currentBookingInfo.traveller)text+='Traveller: '+currentBookingInfo.traveller+'\n';
-if(currentBookingInfo.company)text+='Company: '+currentBookingInfo.company+'\n';
-if(currentBookingInfo.luminaId)text+='Lumina ID: '+currentBookingInfo.luminaId+'\n';
-if(currentBookingInfo.booker)text+='Booker: '+currentBookingInfo.booker+'\n';
-if(currentBookingInfo.booker)text+='Approval Status: '+(currentBookingInfo.approved?'APPROVED':'PENDING')+'\n';
 var temp=document.createElement('textarea');
-temp.value=text;
+temp.value=text.trim();
 document.body.appendChild(temp);
 temp.select();
 document.execCommand('copy');
@@ -225,7 +222,11 @@ e.preventDefault();
 e.stopPropagation();
 var dropdown=this.parentElement.querySelector('.notes-dropdown');
 if(dropdown){
-dropdown.style.display=dropdown.style.display==='none'?'block':'none';
+if(dropdown.style.display==='none'||dropdown.style.display===''){
+dropdown.style.display='block';
+}else{
+dropdown.style.display='none';
+}
 }
 });
 }
