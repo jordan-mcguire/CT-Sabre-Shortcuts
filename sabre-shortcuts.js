@@ -9,11 +9,22 @@ const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
 let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:''};
 
+let passengerLineIndex=-1;
 for(let i=0;i<lines.length;i++){
 const text=lines[i].innerText.trim();
-if(text.length===6&&/^[A-Z]{6}$/i.test(text)&&text!=='PHONES'){
+if(text.startsWith('1.1')){
+passengerLineIndex=i;
+break;
+}
+}
+
+if(passengerLineIndex>0){
+for(let i=0;i<passengerLineIndex;i++){
+const text=lines[i].innerText.trim();
+if(text.length===6&&/^[A-Z]{6}$/i.test(text)){
 info.pnr=text;
 break;
+}
 }
 }
 
