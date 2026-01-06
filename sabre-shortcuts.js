@@ -3,9 +3,6 @@ if(document.getElementById('sabreShortcutsMenu')){
 document.getElementById('sabreShortcutsMenu').remove();
 return;
 }
-if(document.getElementById('sabreNotesPopup')){
-document.getElementById('sabreNotesPopup').remove();
-}
 
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
@@ -80,9 +77,14 @@ bookingInfoHTML='<div class="booking-info">'
 +'</div>';
 }
 
-let notesButtonHTML='';
+let notesHTML='';
 if(info.notes.length>0){
-notesButtonHTML='<a href="#" class="menu-item menu-item-alert" data-action="viewNotes" id="notesButton">⚠️ Notes to Agent Found</a>';
+notesHTML='<div class="notes-container">'
++'<a href="#" class="menu-item menu-item-alert" data-action="toggleNotes">⚠️ Notes to Agent Found</a>'
++'<div class="notes-collapsible">'
++'<div class="notes-collapsible-content">'+info.notes.join('<br>')+'</div>'
++'</div>'
++'</div>';
 }
 
 let copyRowHTML='<div class="copy-row"><span class="copy-row-label">COPY:</span>'
@@ -96,7 +98,7 @@ copyRowHTML+='</div>';
 return '<div class="menu-header">CT SABRE SHORTCUTS</div>'
 +bookingInfoHTML
 +copyRowHTML
-+notesButtonHTML
++notesHTML
 +'<div class="button-row">'
 +'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
 +'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
@@ -160,21 +162,18 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 +'@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.8}}'
 +'.button-row{display:flex;gap:6px;margin:6px 0}'
 +'.menu-item-half{flex:1;margin:0}'
++'.notes-container{margin:6px 0}'
++'.notes-collapsible{max-height:0;overflow:hidden;transition:max-height 0.3s ease-out}'
++'.notes-collapsible.expanded{max-height:500px}'
++'.notes-collapsible-content{background:#f8f9fa;padding:12px;margin-top:6px;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333}'
 +'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
-+'.close-btn:hover{color:#ffeb3b}'
-+'#sabreNotesPopup{position:fixed;width:300px;background:white;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);padding:15px;z-index:1000000;font-family:Aptos,Arial,sans-serif}'
-+'.notes-popup-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #ff9800}'
-+'.notes-popup-title{font-size:14px;font-weight:bold;color:#ff2e5f;display:flex;align-items:center;gap:8px}'
-+'.notes-popup-close{background:none;border:none;font-size:24px;color:#999;cursor:pointer;padding:0;line-height:1}'
-+'.notes-popup-close:hover{color:#ff2e5f}'
-+'.notes-popup-content{background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto}';
++'.close-btn:hover{color:#ffeb3b}';
 
 document.head.appendChild(style);
 document.body.appendChild(menu);
     function attachEventListeners(){
 var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
-var notesPopup=null;
 
 menuElement.addEventListener('mousedown',function(e){
 if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
@@ -191,9 +190,6 @@ currentY=e.clientY-initialY;
 xOffset=currentX;
 yOffset=currentY;
 menuElement.style.transform='translate3d('+currentX+'px, '+currentY+'px, 0)';
-if(notesPopup){
-notesPopup.style.transform='translate3d('+currentX+'px, '+currentY+'px, 0)';
-}
 }
 });
 
@@ -201,10 +197,7 @@ document.addEventListener('mouseup',function(){isDragging=false;});
 
 var closeBtn=menuElement.querySelector('.close-btn');
 if(closeBtn){
-closeBtn.addEventListener('click',function(){
-menuElement.remove();
-if(notesPopup)notesPopup.remove();
-});
+closeBtn.addEventListener('click',function(){menuElement.remove();});
 }
 
 var copyBtn=menuElement.querySelector('.copy-btn');
@@ -279,39 +272,14 @@ document.body.removeChild(temp);
 }
 }
 
-function showNotesPopup(){
-if(document.getElementById('sabreNotesPopup')){
-document.getElementById('sabreNotesPopup').remove();
-notesPopup=null;
-return;
-}
-const popup=document.createElement('div');
-popup.id='sabreNotesPopup';
-const notesText=currentBookingInfo.notes.join('<br>');
-popup.innerHTML='<div class="notes-popup-header"><div class="notes-popup-title">⚠️ Notes to Agent</div><button class="notes-popup-close">×</button></div><div class="notes-popup-content">'+notesText+'</div>';
-document.body.appendChild(popup);
-notesPopup=popup;
-
-const notesButton=document.getElementById('notesButton');
-const menuRect=menuElement.getBoundingClientRect();
-const buttonRect=notesButton.getBoundingClientRect();
-popup.style.right=(window.innerWidth-menuRect.left)+'px';
-popup.style.top=buttonRect.top+'px';
-if(xOffset||yOffset){
-popup.style.transform='translate3d('+xOffset+'px, '+yOffset+'px, 0)';
-}
-
-popup.querySelector('.notes-popup-close').addEventListener('click',function(){
-popup.remove();
-notesPopup=null;
-});
-}
-
-var notesButton=menuElement.querySelector('[data-action="viewNotes"]');
-if(notesButton){
-notesButton.addEventListener('click',function(e){
+var toggleNotesBtn=menuElement.querySelector('[data-action="toggleNotes"]');
+if(toggleNotesBtn){
+toggleNotesBtn.addEventListener('click',function(e){
 e.preventDefault();
-showNotesPopup();
+var collapsible=this.parentElement.querySelector('.notes-collapsible');
+if(collapsible){
+collapsible.classList.toggle('expanded');
+}
 });
 }
 
@@ -322,7 +290,7 @@ var action=this.getAttribute('data-action');
 
 if(action==='copyContact'){
 copyContactDetailsRich();
-}else if(action==='viewNotes'){
+}else if(action==='toggleNotes'){
 // Handled above
 }else if(action==='copyPNR'){
 if(currentBookingInfo.pnr){
