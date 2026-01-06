@@ -3,6 +3,9 @@ if(document.getElementById('sabreShortcutsMenu')){
 document.getElementById('sabreShortcutsMenu').remove();
 return;
 }
+if(document.getElementById('sabreNotesPopup')){
+document.getElementById('sabreNotesPopup').remove();
+}
 
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
@@ -79,22 +82,21 @@ bookingInfoHTML='<div class="booking-info">'
 
 let notesButtonHTML='';
 if(info.notes.length>0){
-notesButtonHTML='<div class="notes-container"><a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a><div class="notes-dropdown"><div class="notes-dropdown-content">'+info.notes.join('<br>')+'</div></div></div>';
+notesButtonHTML='<a href="#" class="menu-item menu-item-alert" data-action="viewNotes">⚠️ Notes to Agent Found</a>';
 }
 
-let travellerDetailsHTML='';
+let copyRowHTML='<div class="copy-row"><span class="copy-row-label">COPY:</span>'
++'<a href="#" class="copy-row-btn" data-action="copyPNR">📋 PNR</a>'
++'<a href="#" class="copy-row-btn" data-action="copyLuminaId">☑️ Lumina</a>';
 if(info.email||info.phone){
-travellerDetailsHTML='<a href="#" class="menu-item" data-action="copyTravellerDetails">Copy Traveller Details</a>';
+copyRowHTML+='<a href="#" class="copy-row-btn" data-action="copyContact">📞 Contact</a>';
 }
+copyRowHTML+='</div>';
 
 return '<div class="menu-header">CT SABRE SHORTCUTS</div>'
 +bookingInfoHTML
-+travellerDetailsHTML
++copyRowHTML
 +notesButtonHTML
-+'<div class="button-row">'
-+'<a href="#" class="menu-item menu-item-half" data-action="copyPNR">Copy PNR</a>'
-+(info.luminaId?'<a href="#" class="menu-item menu-item-half" data-action="copyLuminaId">Copy Lumina ID</a>':'')
-+'</div>'
 +'<div class="button-row">'
 +'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
 +'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
@@ -145,18 +147,24 @@ style.textContent='#sabreShortcutsMenu{position:fixed;top:20px;right:20px;width:
 +'.approval-status{margin-top:8px;padding:6px;border-radius:5px;text-align:center;font-weight:bold;font-size:10px}'
 +'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
 +'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
++'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
++'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
++'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
++'.copy-row-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
 +'.menu-item{display:block;padding:8px 12px;margin:6px 0;background:rgba(255,255,255,0.95);color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer}'
 +'.menu-item:hover{background:white;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
-+'.menu-item-alert{background:#fff3cd;border:2px solid #ff9800;font-weight:600;animation:pulse 2s infinite;position:relative}'
++'.menu-item-alert{background:#fff3cd;border:2px solid #ff9800;font-weight:600;animation:pulse 2s infinite}'
 +'@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.8}}'
 +'.button-row{display:flex;gap:6px;margin:6px 0}'
 +'.menu-item-half{flex:1;margin:0}'
-+'.notes-container{position:relative;margin:6px 0}'
-+'.notes-dropdown{max-height:0;overflow:hidden;transition:max-height 0.3s ease;background:white;border-radius:5px;box-shadow:0 4px 12px rgba(0,0,0,0.2);margin-top:4px}'
-+'.notes-dropdown.open{max-height:300px}'
-+'.notes-dropdown-content{padding:12px;background:#f8f9fa;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.5;color:#333;max-height:200px;overflow-y:auto}'
 +'.close-btn{position:absolute;top:5px;right:10px;color:white;font-size:20px;cursor:pointer;line-height:20px;z-index:10}'
-+'.close-btn:hover{color:#ffeb3b}';
++'.close-btn:hover{color:#ffeb3b}'
++'#sabreNotesPopup{position:fixed;top:20px;right:320px;width:300px;background:white;border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.4);padding:15px;z-index:1000000;font-family:Aptos,Arial,sans-serif}'
++'.notes-popup-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:2px solid #ff9800}'
++'.notes-popup-title{font-size:14px;font-weight:bold;color:#ff2e5f;display:flex;align-items:center;gap:8px}'
++'.notes-popup-close{background:none;border:none;font-size:24px;color:#999;cursor:pointer;padding:0;line-height:1}'
++'.notes-popup-close:hover{color:#ff2e5f}'
++'.notes-popup-content{background:#f8f9fa;padding:12px;border-radius:8px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333;max-height:400px;overflow-y:auto}';
 
 document.head.appendChild(style);
 document.body.appendChild(menu);
@@ -165,7 +173,7 @@ var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -193,63 +201,101 @@ var copyBtn=menuElement.querySelector('.copy-btn');
 if(copyBtn){
 copyBtn.addEventListener('click',function(e){
 e.stopPropagation();
-copyBookingInfo();
+copyBookingInfoRich();
 });
 }
 
-function copyBookingInfo(){
-let text='';
-if(currentBookingInfo.pnr)text+='GDS Ref: '+currentBookingInfo.pnr+'\n';
-if(currentBookingInfo.luminaId)text+='CT Booking Number: '+currentBookingInfo.luminaId+'\n';
-if(currentBookingInfo.traveller)text+='Traveller: '+currentBookingInfo.traveller+'\n';
+async function copyBookingInfoRich(){
+let htmlText='<div>';
+if(currentBookingInfo.luminaId)htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
+if(currentBookingInfo.pnr)htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
+if(currentBookingInfo.traveller)htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
+htmlText+='</div>';
+
+let plainText='';
+if(currentBookingInfo.luminaId)plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
+if(currentBookingInfo.pnr)plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
+if(currentBookingInfo.traveller)plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
+
+try{
+const blob=new Blob([htmlText],{type:'text/html'});
+const blobPlain=new Blob([plainText.trim()],{type:'text/plain'});
+await navigator.clipboard.write([
+new ClipboardItem({
+'text/html':blob,
+'text/plain':blobPlain
+})
+]);
+}catch(err){
 var temp=document.createElement('textarea');
-temp.value=text.trim();
+temp.value=plainText.trim();
 document.body.appendChild(temp);
 temp.select();
 document.execCommand('copy');
 document.body.removeChild(temp);
 }
+}
 
-function copyTravellerDetails(){
-let text='';
-text+='Guest Surname: '+(currentBookingInfo.surname||'Not Found')+'\n';
-text+='Guest First Name: '+(currentBookingInfo.firstname||'Not Found')+'\n';
-text+='Phone Number: '+(currentBookingInfo.phone||'Not Found')+'\n';
-text+='Email Address: '+(currentBookingInfo.email||'Not Found')+'\n';
+async function copyContactDetailsRich(){
+let htmlText='<div>';
+htmlText+='<p><strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'</p>';
+htmlText+='<p><strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'</p>';
+htmlText+='<p><strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'</p>';
+htmlText+='<p><strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'</p>';
+htmlText+='</div>';
+
+let plainText='';
+plainText+='Guest Surname: '+(currentBookingInfo.surname||'Not Found')+'\n';
+plainText+='Guest First Name: '+(currentBookingInfo.firstname||'Not Found')+'\n';
+plainText+='Phone Number: '+(currentBookingInfo.phone||'Not Found')+'\n';
+plainText+='Email Address: '+(currentBookingInfo.email||'Not Found')+'\n';
+
+try{
+const blob=new Blob([htmlText],{type:'text/html'});
+const blobPlain=new Blob([plainText.trim()],{type:'text/plain'});
+await navigator.clipboard.write([
+new ClipboardItem({
+'text/html':blob,
+'text/plain':blobPlain
+})
+]);
+}catch(err){
 var temp=document.createElement('textarea');
-temp.value=text.trim();
+temp.value=plainText.trim();
 document.body.appendChild(temp);
 temp.select();
 document.execCommand('copy');
 document.body.removeChild(temp);
+}
+}
+
+function showNotesPopup(){
+if(document.getElementById('sabreNotesPopup'))return;
+const popup=document.createElement('div');
+popup.id='sabreNotesPopup';
+const notesText=currentBookingInfo.notes.join('<br>');
+popup.innerHTML='<div class="notes-popup-header"><div class="notes-popup-title">⚠️ Notes to Agent</div><button class="notes-popup-close">×</button></div><div class="notes-popup-content">'+notesText+'</div>';
+document.body.appendChild(popup);
+popup.querySelector('.notes-popup-close').addEventListener('click',function(){
+popup.remove();
+});
 }
 
 var notesButton=menuElement.querySelector('[data-action="viewNotes"]');
 if(notesButton){
 notesButton.addEventListener('click',function(e){
 e.preventDefault();
-e.stopPropagation();
-var dropdown=this.parentElement.querySelector('.notes-dropdown');
-if(dropdown){
-dropdown.classList.toggle('open');
-}
+showNotesPopup();
 });
 }
 
-document.addEventListener('click',function(e){
-var notesDropdown=menuElement.querySelector('.notes-dropdown');
-if(notesDropdown&&!e.target.closest('.notes-container')){
-notesDropdown.classList.remove('open');
-}
-});
-
-menuElement.querySelectorAll('.menu-item').forEach(function(item){
+menuElement.querySelectorAll('.copy-row-btn, .menu-item').forEach(function(item){
 item.addEventListener('click',function(e){
 e.preventDefault();
 var action=this.getAttribute('data-action');
 
-if(action==='copyTravellerDetails'){
-copyTravellerDetails();
+if(action==='copyContact'){
+copyContactDetailsRich();
 }else if(action==='viewNotes'){
 // Handled above
 }else if(action==='copyPNR'){
@@ -272,7 +318,7 @@ temp.select();
 document.execCommand('copy');
 document.body.removeChild(temp);
 }else{
-alert('Lumina ID not found');
+alert('No Lumina ID found - please download your booking');
 }
 }else if(action==='viewSerko'){
 const pattern=/Q¥QUOTE NUMBER\s*-\s*(\d+)/;
