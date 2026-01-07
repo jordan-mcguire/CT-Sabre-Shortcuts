@@ -139,7 +139,6 @@ function updateMenu(){
 currentBookingInfo=extractBookingInfo();
 var menu=document.getElementById('sabreShortcutsMenu');
 if(menu){
-const wasCollapsed = isCollapsed;
 menu.innerHTML=buildMenuHTML(currentBookingInfo);
 attachEventListeners();
 }
@@ -249,8 +248,7 @@ var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('
-                                                                                                                                                                copy-btn')||e.target.classList.contains('copy-row-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
