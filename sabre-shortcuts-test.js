@@ -174,7 +174,7 @@ var style=document.createElement('style');
 style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;display:flex;flex-direction:column;cursor:move}'
 +'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative;order:1}'
 +'.menu-header-title{flex:1;text-align:center}'
-+'.collapse-btn{background:none;border:none;color:white;font-size:16px;cursor:pointer;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;line-height:1}'
++'.collapse-btn{background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
 +'.collapse-btn:hover{opacity:0.8}'
 +'.menu-content{overflow:hidden;transition:max-height 0.3s ease-out;padding:12px;order:2}'
 +'.menu-content.collapsed{max-height:0;padding:0}'
@@ -207,7 +207,7 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 +'.notes-collapsible{max-height:0;overflow:hidden;transition:max-height 0.3s ease-out}'
 +'.notes-collapsible.expanded{max-height:500px}'
 +'.notes-collapsible-content{background:#f8f9fa;padding:12px;margin-top:6px;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333}'
-+'.close-btn{color:white;font-size:20px;cursor:pointer;line-height:20px;width:24px;height:24px;display:flex;align-items:center;justify-content:center}'
++'.close-btn{color:white;font-size:20px;cursor:pointer;line-height:20px;width:20px;height:20px;display:flex;align-items:center;justify-content:center}'
 +'.close-btn:hover{opacity:0.8}';
 
 document.head.appendChild(style);
@@ -249,11 +249,9 @@ var collapseBtn=menuElement.querySelector('.collapse-btn');
   if(collapseBtn){
 collapseBtn.addEventListener('click',function(e){
 e.stopPropagation();
-isCollapsed = !isCollapsed;
 const content = menuElement.querySelector('.menu-content');
 
-if(isCollapsed){
-// Determine expand direction based on position
+// ALWAYS check position and set direction every time button is clicked
 const rect = menuElement.getBoundingClientRect();
 const viewportHeight = window.innerHeight;
 const menuMiddle = rect.top + (rect.height / 2);
@@ -264,6 +262,10 @@ menuElement.classList.add('expand-upward');
 menuElement.classList.remove('expand-upward');
 }
 
+// Then toggle collapsed state
+isCollapsed = !isCollapsed;
+
+if(isCollapsed){
 content.classList.remove('expanded');
 content.classList.add('collapsed');
 this.innerHTML = '▲';
