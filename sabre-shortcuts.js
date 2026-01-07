@@ -310,9 +310,9 @@ copyBookingInfoRich();
 
 async function copyBookingInfoRich(){
 let htmlText='<div>';
-if(currentBookingInfo.luminaId)htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
-if(currentBookingInfo.pnr)htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
-if(currentBookingInfo.traveller)htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
+if(currentBookingInfo.luminaId)htmlText+='<strong>Booking #:</strong> '+currentBookingInfo.luminaId+'<br/>';
+if(currentBookingInfo.pnr)htmlText+='<strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'<br/';
+if(currentBookingInfo.traveller)htmlText+='<strong>Traveller:</strong> '+currentBookingInfo.traveller+'<br/>';
 htmlText+='</div>';
 
 let plainText='';
@@ -341,10 +341,10 @@ document.body.removeChild(temp);
 
 async function copyContactDetailsRich(){
 let htmlText='<div>';
-htmlText+='<p><strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'</p>';
-htmlText+='<p><strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'</p>';
-htmlText+='<p><strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'</p>';
-htmlText+='<p><strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'</p>';
+htmlText+='<strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'<br/>';
+htmlText+='<strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'<br/>';
+htmlText+='<strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'<br/>';
+htmlText+='<strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'<br/>';
 htmlText+='</div>';
 
 let plainText='';
