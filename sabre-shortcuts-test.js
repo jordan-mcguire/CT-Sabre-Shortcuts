@@ -4,6 +4,11 @@ document.getElementById('sabreShortcutsMenu').remove();
 return;
 }
 
+if(document.getElementById('sabreShortcutsIcon')){
+document.getElementById('sabreShortcutsIcon').remove();
+return;
+}
+
 // Track collapse state in memory
 let isCollapsed = false;
 
@@ -134,17 +139,8 @@ function updateMenu(){
 currentBookingInfo=extractBookingInfo();
 var menu=document.getElementById('sabreShortcutsMenu');
 if(menu){
-const content = menu.querySelector('.menu-content');
-const collapseBtn = menu.querySelector('.collapse-btn');
 const wasCollapsed = isCollapsed;
 menu.innerHTML=buildMenuHTML(currentBookingInfo);
-if(wasCollapsed){
-const newContent = menu.querySelector('.menu-content');
-const newCollapseBtn = menu.querySelector('.collapse-btn');
-newContent.classList.add('collapsed');
-newCollapseBtn.innerHTML = '▲';
-newCollapseBtn.title = 'Expand';
-}
 attachEventListeners();
 }
 }
@@ -171,16 +167,12 @@ menu.style.right='20px';
 menu.style.top='auto';
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;display:flex;flex-direction:column;cursor:move}'
-+'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative;order:1}'
+style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
++'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative}'
 +'.menu-header-title{flex:1;text-align:center}'
-+'.collapse-btn{background:none;border:none;color:white;font-size:18px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
++'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
 +'.collapse-btn:hover{opacity:0.8}'
-+'.menu-content{overflow:hidden;transition:max-height 0.3s ease-out;padding:12px;order:2}'
-+'.menu-content.collapsed{max-height:0;padding:0}'
-+'.menu-content.expanded{max-height:2000px}'
-+'#sabreShortcutsMenu.expand-upward .menu-content{order:0}'
-+'#sabreShortcutsMenu.expand-upward .menu-header{order:1;border-bottom:none;border-top:1px solid rgba(255,255,255,0.3)}'
++'.menu-content{padding:12px}'
 +'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
 +'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
 +'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
@@ -208,17 +200,57 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 +'.notes-collapsible.expanded{max-height:500px}'
 +'.notes-collapsible-content{background:#f8f9fa;padding:12px;margin-top:6px;border-radius:5px;border-left:4px solid #ff9800;font-size:11px;line-height:1.6;color:#333}'
 +'.close-btn{color:white;font-size:20px;cursor:pointer;line-height:20px;width:20px;height:20px;display:flex;align-items:center;justify-content:center}'
-+'.close-btn:hover{opacity:0.8}';
++'.close-btn:hover{opacity:0.8}'
++'#sabreShortcutsIcon{position:fixed;bottom:20px;right:20px;width:50px;height:50px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:50%;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:999999;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform 0.2s ease}'
++'#sabreShortcutsIcon:hover{transform:scale(1.1)}'
++'#sabreShortcutsIcon span{font-size:28px}';
 
 document.head.appendChild(style);
 document.body.appendChild(menu);
+
+function createCollapsedIcon(){
+var icon=document.createElement('div');
+icon.id='sabreShortcutsIcon';
+icon.innerHTML='<span>⚡</span>';
+icon.addEventListener('click',function(){
+expandMenu();
+});
+document.body.appendChild(icon);
+}
+
+function collapseToIcon(){
+isCollapsed=true;
+var menu=document.getElementById('sabreShortcutsMenu');
+if(menu){
+menu.remove();
+}
+createCollapsedIcon();
+}
+
+function expandMenu(){
+isCollapsed=false;
+var icon=document.getElementById('sabreShortcutsIcon');
+if(icon){
+icon.remove();
+}
+var menu=document.createElement('div');
+menu.id='sabreShortcutsMenu';
+menu.innerHTML=buildMenuHTML(currentBookingInfo);
+menu.style.bottom='20px';
+menu.style.right='20px';
+menu.style.top='auto';
+menu.style.transform='translate3d(0px, 0px, 0)';
+document.body.appendChild(menu);
+attachEventListeners();
+}
 
 function attachEventListeners(){
 var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('
+                                                                                                                                                                copy-btn')||e.target.classList.contains('copy-row-btn'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -242,40 +274,18 @@ if(closeBtn){
 closeBtn.addEventListener('click',function(e){
 e.stopPropagation();
 menuElement.remove();
+var icon=document.getElementById('sabreShortcutsIcon');
+if(icon){
+icon.remove();
+}
 });
 }
 
 var collapseBtn=menuElement.querySelector('.collapse-btn');
-  if(collapseBtn){
+if(collapseBtn){
 collapseBtn.addEventListener('click',function(e){
 e.stopPropagation();
-const content = menuElement.querySelector('.menu-content');
-
-// ALWAYS check position and set direction every time button is clicked
-const rect = menuElement.getBoundingClientRect();
-const viewportHeight = window.innerHeight;
-const menuMiddle = rect.top + (rect.height / 2);
-
-if(menuMiddle > viewportHeight / 2){
-menuElement.classList.add('expand-upward');
-}else{
-menuElement.classList.remove('expand-upward');
-}
-
-// Then toggle collapsed state
-isCollapsed = !isCollapsed;
-
-if(isCollapsed){
-content.classList.remove('expanded');
-content.classList.add('collapsed');
-this.innerHTML = '▲';
-this.title = 'Expand';
-}else{
-content.classList.remove('collapsed');
-content.classList.add('expanded');
-this.innerHTML = '▼';
-this.title = 'Collapse';
-}
+collapseToIcon();
 });
 }
 
