@@ -114,9 +114,19 @@ let copyRowHTML='<div class="copy-row"><span class="copy-row-label">COPY:</span>
 +'<a href="#" class="copy-row-btn" data-action="copyPNR">📋 PNR</a>'
 +'<a href="#" class="copy-row-btn" data-action="copyLuminaId">☑️ Lumina</a>';
 if(info.email||info.phone){
-copyRowHTML+='<a href="#" class="copy-row-btn" data-action="copyContact">📞 Contact</a>';
+copyRowHTML+='<a href="#" class="copy-row-btn" data-action="toggleContact">📞 Contact</a>';
 }
 copyRowHTML+='</div>';
+
+let contactSubmenuHTML='';
+if(info.email||info.phone){
+contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
++'<a href="#" class="copy-row-btn" data-action="copyName">Name</a>'
++'<a href="#" class="copy-row-btn" data-action="copyMobile">Mobile</a>'
++'<a href="#" class="copy-row-btn" data-action="copyEmail">Email</a>'
++'<a href="#" class="copy-row-btn" data-action="copyAllContact">Copy All</a>'
++'</div>';
+}
 
 return '<div class="menu-header">'
 +'<button class="collapse-btn" title="Collapse">▼</button>'
@@ -126,6 +136,7 @@ return '<div class="menu-header">'
 +'<div class="menu-content">'
 +bookingInfoHTML
 +copyRowHTML
++contactSubmenuHTML
 +notesHTML
 +'<div class="button-row">'
 +'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
@@ -188,6 +199,8 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 +'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
 +'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
 +'.copy-row-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
++'.copy-row-btn.expanded{background:#ffddee}'
++'.contact-submenu{display:flex;flex-direction:column;gap:4px;padding:6px;background:#ffe6f0;border-radius:5px;margin:6px 0}'
 +'.menu-item{display:block;padding:8px 12px;margin:6px 0;background:rgba(255,255,255,0.95);color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer}'
 +'.menu-item:hover{background:white;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
 +'.menu-item-alert{background:#fff3cd;border:2px solid #ff9800;font-weight:600;animation:pulse 2s infinite}'
@@ -227,8 +240,8 @@ createCollapsedIcon();
 }
 
 function expandMenu(){
-isCollapsed=false;
-var icon=document.getElementById('sabreShortcutsIcon');
+isCollapsed=false
+  var icon=document.getElementById('sabreShortcutsIcon');
 if(icon){
 icon.remove();
 }
@@ -375,7 +388,45 @@ item.addEventListener('click',function(e){
 e.preventDefault();
 var action=this.getAttribute('data-action');
 
-if(action==='copyContact'){
+if(action==='toggleContact'){
+var submenu=menuElement.querySelector('.contact-submenu');
+if(submenu){
+if(submenu.style.display==='none'){
+submenu.style.display='flex';
+this.classList.add('expanded');
+}else{
+submenu.style.display='none';
+this.classList.remove('expanded');
+}
+}
+}else if(action==='copyName'){
+if(currentBookingInfo.traveller){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.traveller;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyMobile'){
+if(currentBookingInfo.phone){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.phone;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyEmail'){
+if(currentBookingInfo.email){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.email;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyAllContact'){
 copyContactDetailsRich();
 }else if(action==='toggleNotes'){
 // Handled above
