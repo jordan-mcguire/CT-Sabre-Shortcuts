@@ -78,6 +78,43 @@ alert('Could not read clipboard. Please ensure you clicked REFUND in Sabre first
 return;
 }
 
+  // Trip Proposal TIDY button injection
+function injectTidyButton(){
+var actionButtons=document.querySelector('.action-buttons');
+if(!actionButtons||document.getElementById('ctTidyButton'))return;
+
+var buttons=actionButtons.querySelectorAll('button');
+if(buttons.length<2)return;
+
+var tidyButton=document.createElement('div');
+tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
+tidyButton.id='ctTidyButton';
+tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
+
+var tidyStyle=document.createElement('style');
+tidyStyle.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
+document.head.appendChild(tidyStyle);
+
+var copyButtonWrapper=buttons[1].parentElement;
+actionButtons.insertBefore(tidyButton,copyButtonWrapper);
+
+tidyButton.querySelector('button').addEventListener('click',function(){
+var script=document.createElement('script');
+script.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
+document.body.appendChild(script);
+});
+}
+
+var proposalObserver=new MutationObserver(function(){
+injectTidyButton();
+});
+
+var mainContent=document.querySelector('.area-out');
+if(mainContent){
+proposalObserver.observe(mainContent,{childList:true,subtree:true});
+injectTidyButton();
+}
+  
 let isCollapsed = false;
 
 function extractBookingInfo(){
