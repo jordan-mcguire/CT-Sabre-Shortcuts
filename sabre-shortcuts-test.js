@@ -78,9 +78,12 @@ alert('Could not read clipboard. Please ensure you clicked REFUND in Sabre first
 return;
 }
 
-  // Trip Proposal TIDY button injection
+// Trip Proposal TIDY button injection
 function injectTidyButton(){
-var actionButtons=document.querySelector('.action-buttons');
+var modal=document.querySelector('.trip-proposal-share-modal');
+if(!modal)return;
+
+var actionButtons=modal.querySelector('.modal-footer .action-buttons');
 if(!actionButtons||document.getElementById('ctTidyButton'))return;
 
 var buttons=actionButtons.querySelectorAll('button');
@@ -91,11 +94,16 @@ tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
 tidyButton.id='ctTidyButton';
 tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
 
+if(!document.getElementById('ctTidyStyle')){
 var tidyStyle=document.createElement('style');
+tidyStyle.id='ctTidyStyle';
 tidyStyle.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
 document.head.appendChild(tidyStyle);
+}
 
+var closeButtonWrapper=buttons[0].parentElement;
 var copyButtonWrapper=buttons[1].parentElement;
+
 actionButtons.insertBefore(tidyButton,copyButtonWrapper);
 
 tidyButton.querySelector('button').addEventListener('click',function(){
@@ -105,15 +113,16 @@ document.body.appendChild(script);
 });
 }
 
-var proposalObserver=new MutationObserver(function(){
+var proposalObserver=new MutationObserver(function(mutations){
 injectTidyButton();
 });
 
-var mainContent=document.querySelector('.area-out');
-if(mainContent){
-proposalObserver.observe(mainContent,{childList:true,subtree:true});
-injectTidyButton();
+var sabreBody=document.body;
+if(sabreBody){
+proposalObserver.observe(sabreBody,{childList:true,subtree:true});
 }
+
+setTimeout(injectTidyButton,500);
   
 let isCollapsed = false;
 
