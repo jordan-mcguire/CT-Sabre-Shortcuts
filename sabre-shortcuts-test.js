@@ -1,3 +1,14 @@
+(function(){
+if(document.getElementById('sabreShortcutsMenu')){
+document.getElementById('sabreShortcutsMenu').remove();
+return;
+}
+
+if(document.getElementById('sabreShortcutsIcon')){
+document.getElementById('sabreShortcutsIcon').remove();
+return;
+}
+
 // Check if we're on the refund page
 if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
 // Show PASTE FROM SABRE button
@@ -29,7 +40,6 @@ data.pnr=line.split('PNR:')[1].trim();
 }
 });
 
-// Fill the three main fields
 const pnrField=document.querySelector('input[id*="RefundApplication_PNRNo"]');
 if(pnrField&&data.pnr)pnrField.value=data.pnr;
 
@@ -39,20 +49,16 @@ if(nameField&&data.paxName)nameField.value=data.paxName;
 const ticketField=document.querySelector('input[id*="TicketNo"]:not([id*="Duplicate"])');
 if(ticketField&&data.ticketNo)ticketField.value=data.ticketNo;
 
-// Select "Sabre" in GDS dropdown
 const gdsDropdown=document.querySelector('select#RefundApplication_GDS');
 if(gdsDropdown){
 gdsDropdown.value='Sabre';
-// Trigger change event in case there are listeners
 const event=new Event('change',{bubbles:true});
 gdsDropdown.dispatchEvent(event);
 }
 
-// Tick the TmsClient checkbox
 const tmsCheckbox=document.querySelector('input#ConsultantDetails_TmsClient[type="checkbox"]');
 if(tmsCheckbox){
 tmsCheckbox.checked=true;
-// Trigger change event
 const event=new Event('change',{bubbles:true});
 tmsCheckbox.dispatchEvent(event);
 }
@@ -72,7 +78,6 @@ alert('Could not read clipboard. Please ensure you clicked REFUND in Sabre first
 return;
 }
 
-// Track collapse state in memory
 let isCollapsed = false;
 
 function extractBookingInfo(){
@@ -137,15 +142,12 @@ if(phoneMatch){
 info.phone=phoneMatch[1].trim();
 }
 
-// Check for e-ticket
 if(bodyText.indexOf('ELECTRONIC TICKET RECORD')>-1){
 info.hasEticket=true;
 
-// Extract ticket number
 const tktMatch=bodyText.match(/TKT:(\d+(?:\/\d{1,3})?)/);
 if(tktMatch){
 let ticketNo=tktMatch[1];
-// Handle conjunction tickets
 if(ticketNo.includes('/')){
 const parts=ticketNo.split('/');
 const mainPart=parts[0];
@@ -156,13 +158,11 @@ ticketNo=mainPart+'-'+repeatDigit+conjPart;
 info.ticketInfo.ticketNo=ticketNo;
 }
 
-// Extract passenger name (stop at 3+ spaces)
 const nameMatch=bodyText.match(/NAME:([^\n]+?)(?:\s{3,}|\n)/);
 if(nameMatch){
 info.ticketInfo.paxName=nameMatch[1].trim();
 }
 
-// Extract PNR
 const pnrMatch=bodyText.match(/PNR:([A-Z0-9]{6})/);
 if(pnrMatch){
 info.ticketInfo.pnr=pnrMatch[1];
@@ -176,7 +176,6 @@ let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
 function buildMenuHTML(info){
-// Determine if we're in e-ticket-only view
 const isEticketView=info.hasEticket && !info.luminaId;
 
 let approvalHTML='';
@@ -185,17 +184,14 @@ approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</
 }
 
 let bookingInfoHTML='';
-// Show booking info if in PNR OR in e-ticket view
 if(info.pnr||info.traveller||info.company||isEticketView){
 bookingInfoHTML='<div class="booking-info">'
 +'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>';
 
 if(isEticketView){
-// E-ticket view: show PNR and traveller from ticket info
 if(info.ticketInfo.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.ticketInfo.pnr+'</span></div>';
 if(info.ticketInfo.paxName)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.ticketInfo.paxName+'</span></div>';
 }else{
-// PNR view: show full info
 if(info.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
 if(info.luminaId)bookingInfoHTML+='<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>';
 if(info.pnr||info.luminaId)bookingInfoHTML+='<div class="info-divider"></div>';
@@ -254,7 +250,6 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 +'</div>';
 }
 
-// Only show Serko/YourCT buttons if NOT in e-ticket view
 let actionButtonsHTML='';
 if(!isEticketView){
 actionButtonsHTML='<div class="button-row">'
