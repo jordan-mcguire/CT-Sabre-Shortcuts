@@ -1,14 +1,3 @@
-(function(){
-if(document.getElementById('sabreShortcutsMenu')){
-document.getElementById('sabreShortcutsMenu').remove();
-return;
-}
-
-if(document.getElementById('sabreShortcutsIcon')){
-document.getElementById('sabreShortcutsIcon').remove();
-return;
-}
-
 // Check if we're on the refund page
 if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
 // Show PASTE FROM SABRE button
@@ -40,6 +29,7 @@ data.pnr=line.split('PNR:')[1].trim();
 }
 });
 
+// Fill the three main fields
 const pnrField=document.querySelector('input[id*="RefundApplication_PNRNo"]');
 if(pnrField&&data.pnr)pnrField.value=data.pnr;
 
@@ -48,6 +38,24 @@ if(nameField&&data.paxName)nameField.value=data.paxName;
 
 const ticketField=document.querySelector('input[id*="TicketNo"]:not([id*="Duplicate"])');
 if(ticketField&&data.ticketNo)ticketField.value=data.ticketNo;
+
+// Select "Sabre" in GDS dropdown
+const gdsDropdown=document.querySelector('select#RefundApplication_GDS');
+if(gdsDropdown){
+gdsDropdown.value='Sabre';
+// Trigger change event in case there are listeners
+const event=new Event('change',{bubbles:true});
+gdsDropdown.dispatchEvent(event);
+}
+
+// Tick the TmsClient checkbox
+const tmsCheckbox=document.querySelector('input#ConsultantDetails_TmsClient[type="checkbox"]');
+if(tmsCheckbox){
+tmsCheckbox.checked=true;
+// Trigger change event
+const event=new Event('change',{bubbles:true});
+tmsCheckbox.dispatchEvent(event);
+}
 
 this.textContent='✓ PASTED!';
 this.style.background='#28a745';
