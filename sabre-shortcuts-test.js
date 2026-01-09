@@ -9,6 +9,61 @@ document.getElementById('sabreShortcutsIcon').remove();
 return;
 }
 
+// Check if we're on the refund page
+if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
+// Show PASTE FROM SABRE button
+var pasteButton=document.createElement('div');
+pasteButton.id='sabrePasteButton';
+pasteButton.innerHTML='<button id="pasteFromSabreBtn">📋 PASTE FROM SABRE</button>';
+pasteButton.style.cssText='position:fixed;top:20px;right:20px;z-index:999999;';
+document.body.appendChild(pasteButton);
+
+var btnStyle=document.createElement('style');
+btnStyle.textContent='#pasteFromSabreBtn{background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);color:white;border:none;padding:15px 25px;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Aptos,Arial,sans-serif;transition:transform 0.2s ease;}#pasteFromSabreBtn:hover{transform:scale(1.05);}';
+document.head.appendChild(btnStyle);
+
+document.getElementById('pasteFromSabreBtn').addEventListener('click',async function(){
+try{
+const clipboardText=await navigator.clipboard.readText();
+if(clipboardText.startsWith('##SABRE_REFUND##')){
+const lines=clipboardText.split('\n');
+let data={};
+lines.forEach(function(line){
+if(line.includes('TICKET:')){
+data.ticketNo=line.split('TICKET:')[1].trim();
+}
+if(line.includes('NAME:')){
+data.paxName=line.split('NAME:')[1].trim();
+}
+if(line.includes('PNR:')){
+data.pnr=line.split('PNR:')[1].trim();
+}
+});
+
+const pnrField=document.querySelector('input[id*="RefundApplication_PNRNo"]');
+if(pnrField&&data.pnr)pnrField.value=data.pnr;
+
+const nameField=document.querySelector('input[id*="PaxName"]');
+if(nameField&&data.paxName)nameField.value=data.paxName;
+
+const ticketField=document.querySelector('input[id*="TicketNo"]:not([id*="Duplicate"])');
+if(ticketField&&data.ticketNo)ticketField.value=data.ticketNo;
+
+this.textContent='✓ PASTED!';
+this.style.background='#28a745';
+setTimeout(function(){
+document.getElementById('sabrePasteButton').remove();
+},2000);
+}else{
+alert('No refund data found in clipboard. Please click REFUND in Sabre first.');
+}
+}catch(err){
+alert('Could not read clipboard. Please ensure you clicked REFUND in Sabre first.');
+}
+});
+return;
+}
+
 // Track collapse state in memory
 let isCollapsed = false;
 
@@ -113,23 +168,36 @@ let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
 function buildMenuHTML(info){
+// Determine if we're in e-ticket-only view
+const isEticketView=info.hasEticket && !info.luminaId;
+
 let approvalHTML='';
-if(info.booker){
+if(info.booker && !isEticketView){
 approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</div>':'<div class="approval-status pending">⏳ PENDING</div>';
 }
 
 let bookingInfoHTML='';
-if(info.pnr||info.traveller||info.company){
+// Show booking info if in PNR OR in e-ticket view
+if(info.pnr||info.traveller||info.company||isEticketView){
 bookingInfoHTML='<div class="booking-info">'
-+'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>'
-+(info.pnr?'<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>':'')
-+(info.luminaId?'<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>':'')
-+(info.pnr||info.luminaId?'<div class="info-divider"></div>':'')
-+(info.traveller?'<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>':'')
-+(info.company?'<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>':'')
-+(info.booker?'<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>':'')
-+approvalHTML
-+'</div>';
++'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>';
+
+if(isEticketView){
+// E-ticket view: show PNR and traveller from ticket info
+if(info.ticketInfo.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.ticketInfo.pnr+'</span></div>';
+if(info.ticketInfo.paxName)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.ticketInfo.paxName+'</span></div>';
+}else{
+// PNR view: show full info
+if(info.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
+if(info.luminaId)bookingInfoHTML+='<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>';
+if(info.pnr||info.luminaId)bookingInfoHTML+='<div class="info-divider"></div>';
+if(info.traveller)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>';
+if(info.company)bookingInfoHTML+='<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>';
+if(info.booker)bookingInfoHTML+='<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>';
+bookingInfoHTML+=approvalHTML;
+}
+
+bookingInfoHTML+='</div>';
 }
 
 let notesHTML='';
@@ -178,6 +246,15 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 +'</div>';
 }
 
+// Only show Serko/YourCT buttons if NOT in e-ticket view
+let actionButtonsHTML='';
+if(!isEticketView){
+actionButtonsHTML='<div class="button-row">'
++'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
++'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
++'</div>';
+}
+
 return '<div class="menu-header">'
 +'<button class="collapse-btn" title="Collapse">▼</button>'
 +'<span class="menu-header-title">CT SABRE SHORTCUTS</span>'
@@ -189,10 +266,7 @@ return '<div class="menu-header">'
 +contactSubmenuHTML
 +ticketInfoHTML
 +notesHTML
-+'<div class="button-row">'
-+'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
-+'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
-+'</div>'
++actionButtonsHTML
 +'<a href="#" class="menu-item" data-action="tripProposal">Trip Proposal Tidy</a>'
 +'</div>';
 }
@@ -283,38 +357,6 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 document.head.appendChild(style);
 document.body.appendChild(menu);
 
-// Smart paste detection for refund page
-if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
-document.addEventListener('paste',function(e){
-const pastedText=e.clipboardData.getData('text');
-if(pastedText.startsWith('##SABRE_REFUND##')){
-e.preventDefault();
-const lines=pastedText.split('\n');
-let data={};
-lines.forEach(function(line){
-if(line.includes('TICKET:')){
-data.ticketNo=line.split('TICKET:')[1].trim();
-}
-if(line.includes('NAME:')){
-data.paxName=line.split('NAME:')[1].trim();
-}
-if(line.includes('PNR:')){
-data.pnr=line.split('PNR:')[1].trim();
-}
-});
-
-const pnrField=document.querySelector('input[id*="RefundApplication_PNRNo"]');
-if(pnrField&&data.pnr)pnrField.value=data.pnr;
-
-const nameField=document.querySelector('input[id*="PaxName"]');
-if(nameField&&data.paxName)nameField.value=data.paxName;
-
-const ticketField=document.querySelector('input[id*="TicketNo"]:not([id*="Duplicate"])');
-if(ticketField&&data.ticketNo)ticketField.value=data.ticketNo;
-}
-});
-}
-
 function createCollapsedIcon(){
 var icon=document.createElement('div');
 icon.id='sabreShortcutsIcon';
@@ -404,16 +446,38 @@ copyBookingInfoRich();
 }
 
 async function copyBookingInfoRich(){
-let htmlText='<div>';
-if(currentBookingInfo.luminaId)htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
-if(currentBookingInfo.pnr)htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
-if(currentBookingInfo.traveller)htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
-htmlText+='</div>';
+// Determine if we're in e-ticket view
+const isEticketView=currentBookingInfo.hasEticket && !currentBookingInfo.luminaId;
 
+let htmlText='<div>';
 let plainText='';
-if(currentBookingInfo.luminaId)plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
-if(currentBookingInfo.pnr)plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
-if(currentBookingInfo.traveller)plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
+
+if(isEticketView){
+// E-ticket view
+if(currentBookingInfo.ticketInfo.pnr){
+htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.ticketInfo.pnr+'</p>';
+plainText+='GDS Reference: '+currentBookingInfo.ticketInfo.pnr+'\n';
+}
+if(currentBookingInfo.ticketInfo.paxName){
+htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.ticketInfo.paxName+'</p>';
+plainText+='Traveller: '+currentBookingInfo.ticketInfo.paxName+'\n';
+}
+}else{
+// PNR view
+if(currentBookingInfo.luminaId){
+htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
+plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
+}
+if(currentBookingInfo.pnr){
+htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
+plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
+}
+if(currentBookingInfo.traveller){
+htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
+plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
+}
+}
+htmlText+='</div>';
 
 try{
 const blob=new Blob([htmlText],{type:'text/html'});
@@ -591,6 +655,7 @@ document.body.appendChild(temp);
 temp.select();
 document.execCommand('copy');
 document.body.removeChild(temp);
+alert('Refund data copied!\n\nWhen the refund page opens:\n1. Click your Sabre Shortcuts bookmarklet again\n2. Click the "PASTE FROM SABRE" button\n\nThe fields will auto-fill!');
 window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create','_blank');
 }else if(action==='toggleNotes'){
 // Handled above
