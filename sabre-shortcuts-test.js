@@ -173,8 +173,15 @@ if(luminaMatch)info.luminaId=luminaMatch[1].trim();
 const bookerMatch=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
 if(bookerMatch)info.booker=bookerMatch[1].trim();
 
-if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
-
+// Check booking status in priority order
+if(bodyText.toUpperCase().indexOf('PENDING CANCELLATION')>-1){
+info.approved='cancellation';  // Special flag for pending cancellation
+}else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1){
+info.approved=true;
+}else{
+info.approved=false;
+}
+  
 const noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
 for(const match of noteMatches)info.notes.push(match[1].trim());
 
@@ -226,7 +233,13 @@ const isEticketView=info.hasEticket && !info.luminaId;
 
 let approvalHTML='';
 if(info.booker && !isEticketView){
-approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</div>':'<div class="approval-status pending">⏳ PENDING</div>';
+if(info.approved==='cancellation'){
+approvalHTML='<div class="approval-status cancellation">⚠️ PENDING CANCELLATION</div>';
+}else if(info.approved===true){
+approvalHTML='<div class="approval-status approved">✓ APPROVED</div>';
+}else{
+approvalHTML='<div class="approval-status pending">⏳ PENDING</div>';
+}
 }
 
 let bookingInfoHTML='';
@@ -372,6 +385,7 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.approval-status{margin-top:8px;padding:6px;border-radius:5px;text-align:center;font-weight:bold;font-size:10px}'
 +'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
 +'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
++'.approval-status.cancellation{background:#ffebee;color:#c62828;border:1px solid #ef5350;font-weight:bold}'
 +'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
 +'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
 +'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
