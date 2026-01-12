@@ -9,13 +9,127 @@ document.getElementById('sabreShortcutsIcon').remove();
 return;
 }
 
-// Track collapse state in memory
+// Check if we're on the refund page
+if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
+// Show PASTE FROM SABRE button
+var pasteButton=document.createElement('div');
+pasteButton.id='sabrePasteButton';
+pasteButton.innerHTML='<button id="pasteFromSabreBtn">📋 PASTE FROM SABRE</button>';
+pasteButton.style.cssText='position:fixed;top:20px;right:20px;z-index:999999;';
+document.body.appendChild(pasteButton);
+
+var btnStyle=document.createElement('style');
+btnStyle.textContent='#pasteFromSabreBtn{background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);color:white;border:none;padding:15px 25px;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Aptos,Arial,sans-serif;transition:transform 0.2s ease;}#pasteFromSabreBtn:hover{transform:scale(1.05);}';
+document.head.appendChild(btnStyle);
+
+document.getElementById('pasteFromSabreBtn').addEventListener('click',async function(){
+try{
+const clipboardText=await navigator.clipboard.readText();
+if(clipboardText.startsWith('##SABRE_REFUND##')){
+const lines=clipboardText.split('\n');
+let data={};
+lines.forEach(function(line){
+if(line.includes('TICKET:')){
+data.ticketNo=line.split('TICKET:')[1].trim();
+}
+if(line.includes('NAME:')){
+data.paxName=line.split('NAME:')[1].trim();
+}
+if(line.includes('PNR:')){
+data.pnr=line.split('PNR:')[1].trim();
+}
+});
+
+const pnrField=document.querySelector('input[id*="RefundApplication_PNRNo"]');
+if(pnrField&&data.pnr)pnrField.value=data.pnr;
+
+const nameField=document.querySelector('input[id*="PaxName"]');
+if(nameField&&data.paxName)nameField.value=data.paxName;
+
+const ticketField=document.querySelector('input[id*="TicketNo"]:not([id*="Duplicate"])');
+if(ticketField&&data.ticketNo)ticketField.value=data.ticketNo;
+
+const gdsDropdown=document.querySelector('select#RefundApplication_GDS');
+if(gdsDropdown){
+gdsDropdown.value='Sabre';
+const event=new Event('change',{bubbles:true});
+gdsDropdown.dispatchEvent(event);
+}
+
+const tmsCheckbox=document.querySelector('input#ConsultantDetails_TmsClient[type="checkbox"]');
+if(tmsCheckbox){
+tmsCheckbox.checked=true;
+const event=new Event('change',{bubbles:true});
+tmsCheckbox.dispatchEvent(event);
+}
+
+this.textContent='✓ PASTED!';
+this.style.background='#28a745';
+setTimeout(function(){
+document.getElementById('sabrePasteButton').remove();
+},2000);
+}else{
+alert('No refund data found in clipboard. Please click REFUND in Sabre first.');
+}
+}catch(err){
+alert('Could not read clipboard. Please ensure you clicked REFUND in Sabre first.');
+}
+});
+return;
+}
+
+// Trip Proposal TIDY button injection
+function injectTidyButton(){
+var modal=document.querySelector('.trip-proposal-share-modal');
+if(!modal)return;
+
+var actionButtons=modal.querySelector('.modal-footer .action-buttons');
+if(!actionButtons||document.getElementById('ctTidyButton'))return;
+
+var buttons=actionButtons.querySelectorAll('button');
+if(buttons.length<2)return;
+
+var tidyButton=document.createElement('div');
+tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
+tidyButton.id='ctTidyButton';
+tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
+
+if(!document.getElementById('ctTidyStyle')){
+var tidyStyle=document.createElement('style');
+tidyStyle.id='ctTidyStyle';
+tidyStyle.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
+document.head.appendChild(tidyStyle);
+}
+
+var closeButtonWrapper=buttons[0].parentElement;
+var copyButtonWrapper=buttons[1].parentElement;
+
+actionButtons.insertBefore(tidyButton,copyButtonWrapper);
+
+tidyButton.querySelector('button').addEventListener('click',function(){
+var script=document.createElement('script');
+script.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
+document.body.appendChild(script);
+});
+}
+
+var proposalObserver=new MutationObserver(function(mutations){
+injectTidyButton();
+});
+
+var sabreBody=document.body;
+if(sabreBody){
+proposalObserver.observe(sabreBody,{childList:true,subtree:true});
+}
+
+setTimeout(injectTidyButton,500);
+  
 let isCollapsed = false;
 
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
-let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:''};
+let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:'',hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''}};
 
 let passengerLineIndex=-1;
 for(let i=0;i<lines.length;i++){
@@ -59,8 +173,15 @@ if(luminaMatch)info.luminaId=luminaMatch[1].trim();
 const bookerMatch=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
 if(bookerMatch)info.booker=bookerMatch[1].trim();
 
-if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
-
+// Check booking status in priority order
+if(bodyText.toUpperCase().indexOf('PENDING CANCELLATION')>-1){
+info.approved='cancellation';  // Special flag for pending cancellation
+}else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1){
+info.approved=true;
+}else{
+info.approved=false;
+}
+  
 const noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
 for(const match of noteMatches)info.notes.push(match[1].trim());
 
@@ -74,6 +195,33 @@ if(phoneMatch){
 info.phone=phoneMatch[1].trim();
 }
 
+if(bodyText.indexOf('ELECTRONIC TICKET RECORD')>-1){
+info.hasEticket=true;
+
+const tktMatch=bodyText.match(/TKT:(\d+(?:\/\d{1,3})?)/);
+if(tktMatch){
+let ticketNo=tktMatch[1];
+if(ticketNo.includes('/')){
+const parts=ticketNo.split('/');
+const mainPart=parts[0];
+const conjPart=parts[1];
+const repeatDigit=mainPart[mainPart.length-2];
+ticketNo=mainPart+'-'+repeatDigit+conjPart;
+}
+info.ticketInfo.ticketNo=ticketNo;
+}
+
+const nameMatch=bodyText.match(/NAME:([^\n]+?)(?:\s{3,}|\n)/);
+if(nameMatch){
+info.ticketInfo.paxName=nameMatch[1].trim();
+}
+
+const pnrMatch=bodyText.match(/PNR:([A-Z0-9]{6})/);
+if(pnrMatch){
+info.ticketInfo.pnr=pnrMatch[1];
+}
+}
+
 return info;
 }
 
@@ -81,23 +229,38 @@ let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
 function buildMenuHTML(info){
+const isEticketView=info.hasEticket && !info.luminaId;
+
 let approvalHTML='';
-if(info.booker){
-approvalHTML=info.approved?'<div class="approval-status approved">✓ APPROVED</div>':'<div class="approval-status pending">⏳ PENDING</div>';
+if(info.booker && !isEticketView){
+if(info.approved==='cancellation'){
+approvalHTML='<div class="approval-status cancellation">⚠️ PENDING CANCELLATION</div>';
+}else if(info.approved===true){
+approvalHTML='<div class="approval-status approved">✓ APPROVED</div>';
+}else{
+approvalHTML='<div class="approval-status pending">⏳ PENDING</div>';
+}
 }
 
 let bookingInfoHTML='';
-if(info.pnr||info.traveller||info.company){
+if(info.pnr||info.traveller||info.company||isEticketView){
 bookingInfoHTML='<div class="booking-info">'
-+'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>'
-+(info.pnr?'<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>':'')
-+(info.luminaId?'<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>':'')
-+(info.pnr||info.luminaId?'<div class="info-divider"></div>':'')
-+(info.traveller?'<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>':'')
-+(info.company?'<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>':'')
-+(info.booker?'<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>':'')
-+approvalHTML
-+'</div>';
++'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>';
+
+if(isEticketView){
+if(info.ticketInfo.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.ticketInfo.pnr+'</span></div>';
+if(info.ticketInfo.paxName)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.ticketInfo.paxName+'</span></div>';
+}else{
+if(info.pnr)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
+if(info.luminaId)bookingInfoHTML+='<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>';
+if(info.pnr||info.luminaId)bookingInfoHTML+='<div class="info-divider"></div>';
+if(info.traveller)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>';
+if(info.company)bookingInfoHTML+='<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>';
+if(info.booker)bookingInfoHTML+='<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>';
+bookingInfoHTML+=approvalHTML;
+}
+
+bookingInfoHTML+='</div>';
 }
 
 let notesHTML='';
@@ -106,6 +269,24 @@ notesHTML='<div class="notes-container">'
 +'<a href="#" class="menu-item menu-item-alert" data-action="toggleNotes">⚠️ Notes to Agent Found</a>'
 +'<div class="notes-collapsible">'
 +'<div class="notes-collapsible-content">'+info.notes.join('<br>')+'</div>'
++'</div>'
++'</div>';
+}
+
+let ticketInfoHTML='';
+if(info.hasEticket){
+ticketInfoHTML='<div class="ticket-info-container">'
++'<div class="ticket-info-header">🎫 TICKET INFO</div>'
++'<div class="ticket-info-content">'
++'<div class="ticket-copy-row">'
++'<a href="#" class="ticket-copy-btn" data-action="copyTicketNo">TKT NO</a>'
++'<a href="#" class="ticket-copy-btn" data-action="copyTicketName">NAME</a>'
++'<a href="#" class="ticket-copy-btn" data-action="copyTicketPNR">PNR</a>'
++'</div>'
++'<div class="ticket-action-row">'
++'<a href="#" class="ticket-action-btn" data-action="copyAllTicket">COPY ALL</a>'
++'<a href="#" class="ticket-action-btn" data-action="refundTicket">REFUND</a>'
++'</div>'
 +'</div>'
 +'</div>';
 }
@@ -128,6 +309,14 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 +'</div>';
 }
 
+let actionButtonsHTML='';
+if(!isEticketView){
+actionButtonsHTML='<div class="button-row">'
++'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
++'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
++'</div>';
+}
+
 return '<div class="menu-header">'
 +'<button class="collapse-btn" title="Collapse">▼</button>'
 +'<span class="menu-header-title">CT SABRE SHORTCUTS</span>'
@@ -137,11 +326,9 @@ return '<div class="menu-header">'
 +bookingInfoHTML
 +copyRowHTML
 +contactSubmenuHTML
++ticketInfoHTML
 +notesHTML
-+'<div class="button-row">'
-+'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
-+'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
-+'</div>'
++actionButtonsHTML
 +'<a href="#" class="menu-item" data-action="tripProposal">Trip Proposal Tidy</a>'
 +'</div>';
 }
@@ -162,6 +349,9 @@ console.log('PNR changed from',lastKnownPNR,'to',newInfo.pnr);
 lastKnownPNR=newInfo.pnr;
 updateMenu();
 }
+if(newInfo.hasEticket!==currentBookingInfo.hasEticket){
+updateMenu();
+}
 });
 
 const responseArea=document.querySelector('.area-out');
@@ -177,7 +367,7 @@ menu.style.right='20px';
 menu.style.top='auto';
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
+style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
 +'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative}'
 +'.menu-header-title{flex:1;text-align:center}'
 +'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
@@ -195,12 +385,22 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:20px;right:20px;wid
 +'.approval-status{margin-top:8px;padding:6px;border-radius:5px;text-align:center;font-weight:bold;font-size:10px}'
 +'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
 +'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
++'.approval-status.cancellation{background:#ffebee;color:#c62828;border:1px solid #ef5350;font-weight:bold}'
 +'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
 +'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
 +'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
 +'.copy-row-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
 +'.copy-row-btn.expanded{background:#ffddee}'
 +'.contact-submenu{display:flex;flex-direction:column;gap:4px;padding:6px;background:#ffe6f0;border-radius:5px;margin:6px 0}'
++'.ticket-info-container{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin:6px 0}'
++'.ticket-info-header{font-weight:bold;color:#ff2e5f;font-size:11px;margin-bottom:8px;text-align:center}'
++'.ticket-info-content{display:flex;flex-direction:column;gap:6px}'
++'.ticket-copy-row{display:flex;gap:4px}'
++'.ticket-copy-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
++'.ticket-copy-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
++'.ticket-action-row{display:flex;gap:4px}'
++'.ticket-action-btn{flex:1;padding:8px 4px;background:#fff3cd;color:#ff2e5f;text-decoration:none;border-radius:4px;font-size:10px;text-align:center;font-weight:600;cursor:pointer;border:1px solid #ffd700;transition:all 0.2s ease}'
++'.ticket-action-btn:hover{background:#ffe066;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
 +'.menu-item{display:block;padding:8px 12px;margin:6px 0;background:rgba(255,255,255,0.95);color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer}'
 +'.menu-item:hover{background:white;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
 +'.menu-item-alert{background:#fff3cd;border:2px solid #ff9800;font-weight:600;animation:pulse 2s infinite}'
@@ -240,8 +440,8 @@ createCollapsedIcon();
 }
 
 function expandMenu(){
-isCollapsed=false
-  var icon=document.getElementById('sabreShortcutsIcon');
+isCollapsed=false;
+var icon=document.getElementById('sabreShortcutsIcon');
 if(icon){
 icon.remove();
 }
@@ -261,7 +461,7 @@ var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn')||e.target.classList.contains('ticket-copy-btn')||e.target.classList.contains('ticket-action-btn'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -309,16 +509,38 @@ copyBookingInfoRich();
 }
 
 async function copyBookingInfoRich(){
-let htmlText='<div>';
-if(currentBookingInfo.luminaId)htmlText+='<strong>Booking #:</strong> '+currentBookingInfo.luminaId+'<br/>';
-if(currentBookingInfo.pnr)htmlText+='<strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'<br/';
-if(currentBookingInfo.traveller)htmlText+='<strong>Traveller:</strong> '+currentBookingInfo.traveller+'<br/>';
-htmlText+='</div>';
+// Determine if we're in e-ticket view
+const isEticketView=currentBookingInfo.hasEticket && !currentBookingInfo.luminaId;
 
+let htmlText='<div>';
 let plainText='';
-if(currentBookingInfo.luminaId)plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
-if(currentBookingInfo.pnr)plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
-if(currentBookingInfo.traveller)plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
+
+if(isEticketView){
+// E-ticket view
+if(currentBookingInfo.ticketInfo.pnr){
+htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.ticketInfo.pnr+'</p>';
+plainText+='GDS Reference: '+currentBookingInfo.ticketInfo.pnr+'\n';
+}
+if(currentBookingInfo.ticketInfo.paxName){
+htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.ticketInfo.paxName+'</p>';
+plainText+='Traveller: '+currentBookingInfo.ticketInfo.paxName+'\n';
+}
+}else{
+// PNR view
+if(currentBookingInfo.luminaId){
+htmlText+='<p><strong>Booking #:</strong> '+currentBookingInfo.luminaId+'</p>';
+plainText+='Booking #: '+currentBookingInfo.luminaId+'\n';
+}
+if(currentBookingInfo.pnr){
+htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
+plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
+}
+if(currentBookingInfo.traveller){
+htmlText+='<p><strong>Traveller:</strong> '+currentBookingInfo.traveller+'</p>';
+plainText+='Traveller: '+currentBookingInfo.traveller+'\n';
+}
+}
+htmlText+='</div>';
 
 try{
 const blob=new Blob([htmlText],{type:'text/html'});
@@ -341,10 +563,10 @@ document.body.removeChild(temp);
 
 async function copyContactDetailsRich(){
 let htmlText='<div>';
-htmlText+='<strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'<br/>';
-htmlText+='<strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'<br/>';
-htmlText+='<strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'<br/>';
-htmlText+='<strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'<br/>';
+htmlText+='<p><strong>Guest Surname:</strong> '+(currentBookingInfo.surname||'Not Found')+'</p>';
+htmlText+='<p><strong>Guest First Name:</strong> '+(currentBookingInfo.firstname||'Not Found')+'</p>';
+htmlText+='<p><strong>Phone Number:</strong> '+(currentBookingInfo.phone||'Not Found')+'</p>';
+htmlText+='<p><strong>Email Address:</strong> '+(currentBookingInfo.email||'Not Found')+'</p>';
 htmlText+='</div>';
 
 let plainText='';
@@ -352,6 +574,37 @@ plainText+='Guest Surname: '+(currentBookingInfo.surname||'Not Found')+'\n';
 plainText+='Guest First Name: '+(currentBookingInfo.firstname||'Not Found')+'\n';
 plainText+='Phone Number: '+(currentBookingInfo.phone||'Not Found')+'\n';
 plainText+='Email Address: '+(currentBookingInfo.email||'Not Found')+'\n';
+
+try{
+const blob=new Blob([htmlText],{type:'text/html'});
+const blobPlain=new Blob([plainText.trim()],{type:'text/plain'});
+await navigator.clipboard.write([
+new ClipboardItem({
+'text/html':blob,
+'text/plain':blobPlain
+})
+]);
+}catch(err){
+var temp=document.createElement('textarea');
+temp.value=plainText.trim();
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}
+
+async function copyAllTicketInfo(){
+let htmlText='<div>';
+htmlText+='<p><strong>Ticket Number:</strong> '+currentBookingInfo.ticketInfo.ticketNo+'</p>';
+htmlText+='<p><strong>Passenger Name:</strong> '+currentBookingInfo.ticketInfo.paxName+'</p>';
+htmlText+='<p><strong>PNR:</strong> '+currentBookingInfo.ticketInfo.pnr+'</p>';
+htmlText+='</div>';
+
+let plainText='';
+plainText+='Ticket Number: '+currentBookingInfo.ticketInfo.ticketNo+'\n';
+plainText+='Passenger Name: '+currentBookingInfo.ticketInfo.paxName+'\n';
+plainText+='PNR: '+currentBookingInfo.ticketInfo.pnr+'\n';
 
 try{
 const blob=new Blob([htmlText],{type:'text/html'});
@@ -383,7 +636,7 @@ collapsible.classList.toggle('expanded');
 });
 }
 
-menuElement.querySelectorAll('.copy-row-btn, .menu-item').forEach(function(item){
+menuElement.querySelectorAll('.copy-row-btn, .menu-item, .ticket-copy-btn, .ticket-action-btn').forEach(function(item){
 item.addEventListener('click',function(e){
 e.preventDefault();
 var action=this.getAttribute('data-action');
@@ -428,6 +681,45 @@ document.body.removeChild(temp);
 }
 }else if(action==='copyAllContact'){
 copyContactDetailsRich();
+}else if(action==='copyTicketNo'){
+if(currentBookingInfo.ticketInfo.ticketNo){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.ticketInfo.ticketNo;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyTicketName'){
+if(currentBookingInfo.ticketInfo.paxName){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.ticketInfo.paxName;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyTicketPNR'){
+if(currentBookingInfo.ticketInfo.pnr){
+var temp=document.createElement('textarea');
+temp.value=currentBookingInfo.ticketInfo.pnr;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+}
+}else if(action==='copyAllTicket'){
+copyAllTicketInfo();
+}else if(action==='refundTicket'){
+var refundData='##SABRE_REFUND##\nTICKET: '+currentBookingInfo.ticketInfo.ticketNo+'\nNAME: '+currentBookingInfo.ticketInfo.paxName+'\nPNR: '+currentBookingInfo.ticketInfo.pnr;
+var temp=document.createElement('textarea');
+temp.value=refundData;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+alert('Refund data copied!\n\nWhen the refund page opens:\n1. Click your Sabre Shortcuts bookmarklet again\n2. Click the "PASTE FROM SABRE" button\n\nThe fields will auto-fill!');
+window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create','_blank');
 }else if(action==='toggleNotes'){
 // Handled above
 }else if(action==='copyPNR'){
