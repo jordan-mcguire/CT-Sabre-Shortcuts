@@ -127,6 +127,7 @@ setTimeout(injectTidyButton,500);
 let isCollapsed = false;
 let currentTicketView = 'default'; // 'default', 'list', or 'eticket'
 let ticketsInView = [];
+let cameFromTicketList = false;
 
 // Helper: Get PNR from sidebar first, fallback to response text
 function getPNRFromSidebar(){
@@ -175,164 +176,121 @@ return surname + '/' + firstname + (title ? ' ' + title : '');
 return null;
 }
 
-// Helper: Auto-expand all ticket drawers
-function expandAllTicketDrawers(){
-const drawerArrows = document.querySelectorAll('.pnr-ticketing .drawer-arrow');
-drawerArrows.forEach(function(arrow){
-const parent = arrow.closest('.pnr-pay-ticket-row');
-if(parent && !parent.classList.contains('drawer-opened')){
-arrow.click();
+// NEW: Extract tickets from sidebar Trip Summary only
+function extractTicketsFromSidebar(){
+let tickets = [];
+  
+// Check if Trip Summary sidebar is expanded
+const ticketsSectionExpanded = document.querySelector('.expandable-box.tickets-section .box-container.expanded');
+  
+if(!ticketsSectionExpanded){
+// Sidebar collapsed or not available
+return null; // Return null to indicate fallback needed
+}
+  
+// Extract from sidebar
+const ticketRows = document.querySelectorAll('.expandable-box.tickets-section .box-row.qa-tickets-box-row');
+  
+ticketRows.forEach(function(row){
+const dataDiv = row.querySelector('.data-grow.text-small.text-ellipsis');
+if(dataDiv){
+const text = dataDiv.textContent.trim();
+// Pattern: "TE 0816041513557-AU TINDA/R KR5I*AWT"
+// Match: (TE|TO|ME|MO) followed by 13-17 digit ticket number
+const match = text.match(/^\s*(TE|TO|ME|MO)\s+(\d{13,17})/);
+if(match){
+const prefix = match[1];
+const ticketNo = match[2];
+        
+let type = 'regular';
+let isNDC = false;
+let isEMD = false;
+        
+if(prefix === 'TO'){
+type = 'ndc';
+isNDC = true;
+}else if(prefix === 'ME'){
+type = 'emd';
+isEMD = true;
+}else if(prefix === 'MO'){
+type = 'ndc-emd';
+isNDC = true;
+isEMD = true;
+}
+        
+tickets.push({
+type: type,
+ticketNo: ticketNo,
+isNDC: isNDC,
+isEMD: isEMD,
+source: 'sidebar'
+});
+}
 }
 });
-
-// Also expand NDC drawers
-const ndcDrawerArrows = document.querySelectorAll('.ticket-drawer-arrow');
-ndcDrawerArrows.forEach(function(arrow){
-const parent = arrow.closest('.response-segment');
-if(parent && !parent.querySelector('.gpnr-drawer-wrapper.open')){
-arrow.click();
-}
-});
+  
+return tickets;
 }
 
-// NEW: Extract tickets from Classic view (*T command)
+// NEW: Extract tickets from Classic *T view
 function extractClassicTickets(){
 let tickets = [];
 const bodyText = document.body.innerText;
-const lines = document.querySelectorAll('.dn-line.text-line');
   
+// Only proceed if we see the header
+if(!bodyText.includes('TKT/TIME LIMIT')) return tickets;
+  
+// Match lines like: "2.TE 0815467943373-AU WOOD/M..."
+// Pattern: line number, then TE or TO, then 13-17 digit number
+const lines = bodyText.split('\n');
 let inTicketSection = false;
+  
 for(let i = 0; i < lines.length; i++){
-const text = lines[i].innerText.trim();
-if(text === 'TKT/TIME LIMIT'){
+const line = lines[i].trim();
+    
+if(line === 'TKT/TIME LIMIT'){
 inTicketSection = true;
 continue;
 }
+    
 if(inTicketSection){
-if(text.match(/^\d+\./)){
-// Extract ticket from classic view
-const match = text.match(/^\d+\.\s*(TE|TO|T-)\s*(\d+(?:\/\d{1,3})?)/);
+// Match pattern: "2.TE 0815467943373" or "3.TO 0816338094723"
+const match = line.match(/^\d+\.(TE|TO|ME|MO)\s+(\d{13,17})/);
 if(match){
+const prefix = match[1];
+const ticketNo = match[2];
+        
+let type = 'regular';
+let isNDC = false;
+let isEMD = false;
+        
+if(prefix === 'TO'){
+type = 'ndc';
+isNDC = true;
+}else if(prefix === 'ME'){
+type = 'emd';
+isEMD = true;
+}else if(prefix === 'MO'){
+type = 'ndc-emd';
+isNDC = true;
+isEMD = true;
+}
+        
 tickets.push({
-type: 'classic',
-ticketNo: match[2],
-fullLine: text,
+type: type,
+ticketNo: ticketNo,
+isNDC: isNDC,
+isEMD: isEMD,
 source: 'classic'
 });
 }
-}
-if(text.trim() === '' || !text.match(/^\d+\./)){
+      
+// Stop if we hit an empty line or non-ticket line after starting
+if(line === '' || (!line.match(/^\d+\./) && line !== 'TKT/TIME LIMIT')){
 break;
 }
 }
 }
-return tickets;
-}
-
-// NEW: Extract regular tickets from Graphic view
-function extractGraphicRegularTickets(){
-let tickets = [];
-const ticketRows = document.querySelectorAll('.pnr-ticketing-items .pnr-pay-ticket-row');
-  
-ticketRows.forEach(function(row){
-const ticketNoElem = row.querySelector('.docNumber');
-if(ticketNoElem){
-const ticketNo = ticketNoElem.textContent.trim();
-      
-// Try to get passenger name from expanded drawer
-let paxName = '';
-const drawer = row.nextElementSibling;
-if(drawer && drawer.classList.contains('drawer') && drawer.classList.contains('open')){
-const passengerInfo = drawer.querySelector('.passenger-info strong');
-if(passengerInfo){
-// Format: "Maclaren, Bruce Mr" -> "MACLAREN/BRUCE MR"
-let name = passengerInfo.textContent.trim();
-const parts = name.split(',');
-if(parts.length >= 2){
-const surname = parts[0].trim().toUpperCase();
-const rest = parts[1].trim().split(/\s+/);
-const firstname = rest[0].toUpperCase();
-const title = rest.slice(1).join(' ').toUpperCase();
-paxName = surname + '/' + firstname + (title ? ' ' + title : '');
-}
-}
-}
-      
-tickets.push({
-type: 'regular',
-ticketNo: ticketNo,
-paxName: paxName,
-source: 'graphic',
-drawer: row
-});
-}
-});
-  
-return tickets;
-}
-
-// NEW: Extract NDC tickets from Graphic view
-function extractGraphicNDCTickets(){
-let tickets = [];
-const ndcDrawers = document.querySelectorAll('#ticketing-list .response-segment');
-  
-ndcDrawers.forEach(function(drawer){
-const ticketNumDiv = drawer.querySelector('.number-col .itinerary-segment-value');
-if(ticketNumDiv){
-const ticketNo = ticketNumDiv.textContent.trim();
-      
-// Try to get full passenger name from expanded drawer
-let paxName = '';
-let pnr = '';
-      
-const expandedDrawer = drawer.querySelector('.gpnr-drawer-wrapper.open');
-if(expandedDrawer){
-const passengerLi = expandedDrawer.querySelector('.gpnr-drawer-inline-info-list li .value');
-if(passengerLi){
-// Format: "MACLAREN, BRUCE MR" -> "MACLAREN/BRUCE MR"
-let name = passengerLi.textContent.trim();
-const parts = name.split(',');
-if(parts.length >= 2){
-const surname = parts[0].trim();
-const rest = parts[1].trim().split(/\s+/);
-const firstname = rest[0];
-const title = rest.slice(1).join(' ');
-paxName = surname + '/' + firstname + (title ? ' ' + title : '');
-}
-}
-        
-const pnrLi = expandedDrawer.querySelectorAll('.gpnr-drawer-inline-info-list li')[1];
-if(pnrLi){
-const pnrValue = pnrLi.querySelector('.value');
-if(pnrValue){
-pnr = pnrValue.textContent.trim();
-}
-}
-}
-      
-// If not expanded, try to get from ticketing details
-if(!paxName){
-const ticketingDetailsDiv = drawer.querySelector('.details-col--extended .itinerary-segment-value');
-if(ticketingDetailsDiv){
-const detailsText = ticketingDetailsDiv.textContent.trim();
-// Format: "XX Maclaren/B KR5I*AWT"
-const nameMatch = detailsText.match(/^[A-Z]{2}\s+([^\s]+)/);
-if(nameMatch){
-paxName = nameMatch[1];
-}
-}
-}
-      
-tickets.push({
-type: 'ndc',
-ticketNo: ticketNo,
-paxName: paxName,
-pnr: pnr,
-source: 'graphic',
-drawer: drawer
-});
-}
-});
   
 return tickets;
 }
@@ -343,19 +301,6 @@ const bodyText = document.body.innerText;
 return bodyText.indexOf('ELECTRONIC TICKET RECORD') > -1;
 }
 
-// NEW: Detect if we're viewing ticket list (*T or Graphic ticketing tab)
-function isViewingTicketList(){
-// Check for classic *T view
-const classicTickets = extractClassicTickets();
-if(classicTickets.length > 0) return true;
-  
-// Check for graphic ticketing tab
-const graphicRegular = extractGraphicRegularTickets();
-const graphicNDC = extractGraphicNDCTickets();
-  
-return (graphicRegular.length + graphicNDC.length) > 0;
-}
-
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
@@ -363,24 +308,37 @@ let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',boo
 
 // Determine current view
 const viewingETicket = isViewingIndividualETicket();
-const viewingTicketList = isViewingTicketList();
-
-if(viewingTicketList){
-currentTicketView = 'list';
-// Expand all drawers for data extraction
-expandAllTicketDrawers();
-// Wait a bit for expansion
-setTimeout(function(){
-// Collect all tickets
 const classicTickets = extractClassicTickets();
-const graphicRegular = extractGraphicRegularTickets();
-const graphicNDC = extractGraphicNDCTickets();
-ticketsInView = [...classicTickets, ...graphicRegular, ...graphicNDC];
-info.tickets = ticketsInView;
-}, 200);
-}else if(viewingETicket){
+const sidebarTickets = extractTicketsFromSidebar();
+
+// Set view state
+if(viewingETicket){
 currentTicketView = 'eticket';
 info.hasEticket = true;
+}else if(classicTickets.length > 0 || (sidebarTickets && sidebarTickets.length > 0)){
+currentTicketView = 'list';
+// Combine tickets from both sources (deduplicate by ticket number)
+let allTickets = [];
+let ticketNumbers = new Set();
+  
+if(sidebarTickets && sidebarTickets.length > 0){
+sidebarTickets.forEach(function(ticket){
+if(!ticketNumbers.has(ticket.ticketNo)){
+allTickets.push(ticket);
+ticketNumbers.add(ticket.ticketNo);
+}
+});
+}
+  
+classicTickets.forEach(function(ticket){
+if(!ticketNumbers.has(ticket.ticketNo)){
+allTickets.push(ticket);
+ticketNumbers.add(ticket.ticketNo);
+}
+});
+  
+info.tickets = allTickets;
+ticketsInView = allTickets;
 }else{
 currentTicketView = 'default';
 }
@@ -423,11 +381,6 @@ if(!info.traveller){
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
 if(travellerMatch){
 info.traveller=travellerMatch[1].trim();
-const nameParts=info.traveller.split('/');
-if(nameParts.length>=2){
-info.surname=nameParts[0].trim();
-info.firstname=nameParts[1].trim();
-}
 }
 }
 
@@ -442,7 +395,17 @@ info.firstname=nameParts[1].trim();
 const commaParts=info.traveller.split(',');
 if(commaParts.length>=2){
 info.surname=commaParts[0].trim();
-info.firstname=commaParts[1].trim();
+const rest = commaParts[1].trim().split(/\s+/);
+if(rest.length >= 2){
+if(['MR','MRS','MS','MISS','DR'].includes(rest[0].toUpperCase())){
+info.firstname = rest.slice(1).join(' ') + ' ' + rest[0];
+}
+  else{
+info.firstname = rest.join(' ');
+}
+}else{
+info.firstname = rest.join(' ');
+}
 }
 }
 }
@@ -480,7 +443,7 @@ info.phone=phoneMatch[1].trim();
 
 // Extract individual e-ticket info if viewing one
 if(info.hasEticket){
-const tktMatch=bodyText.match(/TKT:(\d+(?:\/\d{1,3})?)/);
+const tktMatch=bodyText.match(/TKT:(\d{13,17}(?:\/\d{1,3})?)/);
 if(tktMatch){
 let ticketNo=tktMatch[1];
 if(ticketNo.includes('/')){
@@ -496,6 +459,9 @@ info.ticketInfo.ticketNo=ticketNo;
 const nameMatch=bodyText.match(/NAME:([^\n]+?)(?:\s{3,}|\n)/);
 if(nameMatch){
 info.ticketInfo.paxName=nameMatch[1].trim();
+}else{
+// Use sidebar traveler name
+info.ticketInfo.paxName = info.traveller;
 }
 
 const pnrMatch=bodyText.match(/PNR:([A-Z0-9]{6})/);
@@ -513,7 +479,7 @@ return info;
 let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
-// NEW: Build ticket list menu
+// NEW: Build ticket list menu (with View Tickets fallback)
 function buildTicketListHTML(info){
 let html = '<div class="booking-info">';
 html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
@@ -526,25 +492,31 @@ html += '<div class="info-row"><span class="info-label">Traveller:</span> <span 
 }
 html += '</div>';
 
+// Check if we have tickets
+if(info.tickets && info.tickets.length > 0){
 html += '<div class="ticket-list">';
 html += '<div class="ticket-list-header">🎫 SELECT TICKET TO VIEW</div>';
 
-// Wait for tickets to be collected
-setTimeout(function(){
-const ticketListDiv = document.querySelector('.ticket-list');
-if(ticketListDiv && ticketsInView.length > 0){
-let ticketHTML = '';
-ticketsInView.forEach(function(ticket, index){
-const displayNo = ticket.ticketNo.replace(/\/.+$$/, '').replace(/-.+$$/, '');
-const ndcLabel = ticket.type === 'ndc' ? ' <span class="ndc-label">NDC</span>' : '';
-ticketHTML += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'" data-ticket-no="'+displayNo+'">'+displayNo+ndcLabel+'</a>';
-});
-ticketListDiv.innerHTML = '<div class="ticket-list-header">🎫 SELECT TICKET TO VIEW</div>' + ticketHTML;
-attachTicketListHandlers();
+info.tickets.forEach(function(ticket, index){
+const displayNo = ticket.ticketNo;
+let labels = '';
+if(ticket.isNDC){
+labels += ' <span class="ndc-label">NDC</span>';
 }
-}, 300);
+if(ticket.isEMD){
+labels += ' <span class="emd-label">EMD</span>';
+}
+html += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'" data-ticket-no="'+displayNo+'">'+displayNo+labels+'</a>';
+});
 
 html += '</div>';
+}else{
+// Fallback: Show "View Tickets" button
+html += '<div class="ticket-fallback">';
+html += '<a href="#" class="menu-item" data-action="viewTickets">🎫 View Tickets (*T)</a>';
+html += '</div>';
+}
+
 return html;
 }
 
@@ -580,8 +552,8 @@ html += '</div>';
 html += '</div>';
 html += '</div>';
 
-// Show back button if we came from ticket list
-if(window.cameFromTicketList){
+// Show back button ONLY if we came from ticket list (multiple tickets)
+if(cameFromTicketList && ticketsInView.length > 1){
 html += '<div class="back-to-list-container">';
 html += '<a href="#" class="back-to-list-btn" data-action="backToList">← Back to Ticket List</a>';
 html += '</div>';
@@ -614,10 +586,8 @@ return '<div class="menu-header">'
 }
 
 // Default view (PNR view)
-const isEticketView=info.hasEticket && !info.luminaId;
-
 let approvalHTML='';
-if(info.booker && !isEticketView){
+if(info.booker){
 if(info.approved==='cancellation'){
 approvalHTML='<div class="approval-status cancellation">⚠️ PENDING CANCELLATION</div>';
 }else if(info.approved===true){
@@ -672,12 +642,10 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 }
 
 let actionButtonsHTML='';
-if(!isEticketView){
 actionButtonsHTML='<div class="button-row">'
 +'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
 +'<a href="#" class="menu-item menu-item-half" data-action="masquerade">View in YourCT</a>'
 +'</div>';
-}
 
 return '<div class="menu-header">'
 +'<button class="collapse-btn" title="Collapse">▼</button>'
@@ -703,22 +671,18 @@ attachEventListeners();
 }
 }
 
+// Debounced observer - only check for PNR changes
+let observerTimeout;
 const observer=new MutationObserver(function(mutations){
+clearTimeout(observerTimeout);
+observerTimeout = setTimeout(function(){
 const newInfo=extractBookingInfo();
 if(newInfo.pnr&&newInfo.pnr!==lastKnownPNR){
 console.log('PNR changed from',lastKnownPNR,'to',newInfo.pnr);
 lastKnownPNR=newInfo.pnr;
 updateMenu();
 }
-if(newInfo.hasEticket!==currentBookingInfo.hasEticket){
-updateMenu();
-}
-// Detect view changes
-const newViewingList = isViewingTicketList();
-const newViewingETicket = isViewingIndividualETicket();
-if((newViewingList && currentTicketView !== 'list') || (newViewingETicket && currentTicketView !== 'eticket')){
-updateMenu();
-}
+}, 500); // Debounce 500ms
 });
 
 const responseArea=document.querySelector('.area-out');
@@ -740,8 +704,7 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
 +'.collapse-btn:hover{opacity:0.8}'
 +'.menu-content{padding:12px;max-height:calc(90vh - 60px);overflow-y:auto}'
-+'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
-+'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
++'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'+'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
 +'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
 +'.copy-btn{background:#fff3cd;color:#ff2e5f;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #ffd700}'
 +'.copy-btn:hover{background:#ffe066}'
@@ -758,7 +721,8 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.ticket-list-item{display:block;padding:10px;margin:6px 0;background:white;color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd}'
 +'.ticket-list-item:hover{background:#f0f0f0;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
 +'.ndc-label{background:#ff2e5f;color:white;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;margin-left:8px}'
-+'.ticket-list-empty{text-align:center;padding:20px;color:#666;font-size:11px}'
++'.emd-label{background:#ffc107;color:#333;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;margin-left:8px}'
++'.ticket-fallback{margin:10px 0}'
 +'.back-to-list-container{margin:10px 0}'
 +'.back-to-list-btn{display:block;padding:8px 12px;background:#f0f0f0;color:#333;text-decoration:none;border-radius:5px;font-size:10px;text-align:center;font-weight:500;cursor:pointer;transition:all 0.2s ease}'
 +'.back-to-list-btn:hover{background:#e0e0e0;transform:translateX(-2px)}'
@@ -842,11 +806,40 @@ alert('Could not find command input or send button');
 return;
 }
 
+// Strip conjunction suffix for VIEW command
+const cleanTicketNo = ticketNo.replace(/[\/-].*$/, '');
+
 // Set flag that we came from ticket list
-window.cameFromTicketList = true;
+if(ticketsInView.length > 1){
+cameFromTicketList = true;
+}
 
 // Set the command
-cmdInput.value = 'WETR*T' + ticketNo;
+cmdInput.value = 'WETR*T' + cleanTicketNo;
+cmdInput.focus();
+
+// Trigger input event
+const inputEvent = new Event('input', { bubbles: true });
+cmdInput.dispatchEvent(inputEvent);
+
+// Click send button
+setTimeout(function(){
+sendButton.click();
+}, 100);
+}
+
+// NEW: Function to execute *T command
+function executeViewTicketsCommand(){
+const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
+const sendButton = document.querySelector('button.send-button');
+  
+if(!cmdInput || !sendButton){
+alert('Could not find command input or send button');
+return;
+}
+
+// Set the command
+cmdInput.value = '*T';
 cmdInput.focus();
 
 // Trigger input event
@@ -1043,20 +1036,12 @@ item.addEventListener('click',function(e){
 e.preventDefault();
 var action=this.getAttribute('data-action');
 
-if(action==='backToList'){
-window.cameFromTicketList = false;
+if(action==='viewTickets'){
+executeViewTicketsCommand();
+}else if(action==='backToList'){
+cameFromTicketList = false;
 // Execute *T command to go back to ticket list
-const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
-const sendButton = document.querySelector('button.send-button');
-if(cmdInput && sendButton){
-cmdInput.value = '*T';
-cmdInput.focus();
-const inputEvent = new Event('input', { bubbles: true });
-cmdInput.dispatchEvent(inputEvent);
-setTimeout(function(){
-sendButton.click();
-}, 100);
-}
+executeViewTicketsCommand();
 }else if(action==='toggleContact'){
 var submenu=menuElement.querySelector('.contact-submenu');
 if(submenu){
