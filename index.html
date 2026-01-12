@@ -215,6 +215,10 @@
                 <p style="margin-top: 20px; color: #999; font-size: 0.9em;">
                     Don't see your bookmarks bar? Press <span class="highlight">Ctrl+Shift+B</span> (Windows) or <span class="highlight">Cmd+Shift+B</span> (Mac)
                 </p>
+
+                <a href="javascript:(function(){var f=document.getElementsByTagName('iframe'),d=null;for(var i=0;i<f.length;i++){try{var t=f[i].contentDocument||f[i].contentWindow.document;if(t.querySelectorAll('.segmentRow').length>0){d=t;break;}}catch(e){}}if(!d)return;var b=d.querySelector('a[href*="bookingId="]').textContent.trim();var g=d.querySelector('.badge-lead').closest('.traveler-row-card').querySelector('span.pl-2').textContent.trim();var r=d.querySelectorAll('.segmentRow'),h=[];for(i=0;i<r.length;i++){var l=r[i].querySelector('a.segment-detail-view');if(l&&l.textContent.trim()==='Accom'){var c=r[i].querySelectorAll('td');h.push({n:c[3].querySelector('.text-muted').textContent.trim(),c:c[2].querySelector('.text-muted').textContent.trim(),i:c[7].querySelector('.mb-1').textContent.trim(),o:c[9].querySelector('.mb-1').textContent.trim()});}}if(!h.length)return;var s=prompt('Select hotel:\n\n'+h.map(function(x,i){return(i+1)+'. '+x.n}).join('\n'));if(s&&h[s-1]){var x=h[s-1],o='Guest name: '+g+'\nHotel confirmation number: '+x.c+'\nCT booking number: '+b+'\nCheck in date: '+x.i+'\nCheck out date: '+x.o;var p=document.createElement('textarea');p.value=o;document.body.appendChild(p);p.select();document.execCommand('copy');document.body.removeChild(p);}})();"
+                    class="bookmarklet-link">
+                    Hotel Info</a><br/>
             </div>
 
             <div class="arrow">↓</div>
@@ -280,3 +284,4 @@
 </body>
 
 </html>
+
