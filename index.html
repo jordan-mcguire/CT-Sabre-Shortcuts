@@ -216,7 +216,7 @@
                     Don't see your bookmarks bar? Press <span class="highlight">Ctrl+Shift+B</span> (Windows) or <span class="highlight">Cmd+Shift+B</span> (Mac)
                 </p>
 
-                <a href="javascript:(function(){var f=document.getElementsByTagName('iframe'),d=null;for(var i=0;i<f.length;i++){try{var t=f[i].contentDocument||f[i].contentWindow.document;if(t.querySelectorAll('.segmentRow').length>0){d=t;break;}}catch(e){}}if(!d)return;var b=d.querySelector('a[href*="bookingId="]').textContent.trim();var g=d.querySelector('.badge-lead').closest('.traveler-row-card').querySelector('span.pl-2').textContent.trim();var r=d.querySelectorAll('.segmentRow'),h=[];for(i=0;i<r.length;i++){var l=r[i].querySelector('a.segment-detail-view');if(l&&l.textContent.trim()==='Accom'){var c=r[i].querySelectorAll('td');h.push({n:c[3].querySelector('.text-muted').textContent.trim(),c:c[2].querySelector('.text-muted').textContent.trim(),i:c[7].querySelector('.mb-1').textContent.trim(),o:c[9].querySelector('.mb-1').textContent.trim()});}}if(!h.length)return;var s=prompt('Select hotel:\n\n'+h.map(function(x,i){return(i+1)+'. '+x.n}).join('\n'));if(s&&h[s-1]){var x=h[s-1],o='Guest name: '+g+'\nHotel confirmation number: '+x.c+'\nCT booking number: '+b+'\nCheck in date: '+x.i+'\nCheck out date: '+x.o;var p=document.createElement('textarea');p.value=o;document.body.appendChild(p);p.select();document.execCommand('copy');document.body.removeChild(p);}})();" class="bookmarklet-link">Hotel Info</a><br/>
+                <a href="javascript:void%20function(){javascript:(function(){for(var%20a=document.getElementsByTagName(%22iframe%22),e=null,f=0;f%3Ca.length;f++)try{var%20j=a[f].contentDocument||a[f].contentWindow.document;if(0%3Cj.querySelectorAll(%22.segmentRow%22).length){e=j;break}}catch(a){}if(e){var%20k=e.querySelector(%22a[href*=\%22bookingId=\%22]%22).textContent.trim(),b=e.querySelector(%22.badge-lead%22).closest(%22.traveler-row-card%22).querySelector(%22span.pl-2%22).textContent.trim(),g=e.querySelectorAll(%22.segmentRow%22),m=[];for(f=0;f%3Cg.length;f++){var%20h=g[f].querySelector(%22a.segment-detail-view%22);if(h%26%26%22Accom%22===h.textContent.trim()){var%20n=g[f].querySelectorAll(%22td%22);m.push({n:n[3].querySelector(%22.text-muted%22).textContent.trim(),c:n[2].querySelector(%22.text-muted%22).textContent.trim(),i:n[7].querySelector(%22.mb-1%22).textContent.trim(),o:n[9].querySelector(%22.mb-1%22).textContent.trim()})}}if(m.length){var%20q=prompt(%22Select%20hotel:\n\n%22+m.map(function(a,b){return%20b+1+%22.%20%22+a.n}).join(%22\n%22));if(q%26%26m[q-1]){var%20r=m[q-1],s=%22Guest%20name:%20%22+b+%22\nHotel%20confirmation%20number:%20%22+r.c+%22\nCT%20booking%20number:%20%22+k+%22\nCheck%20in%20date:%20%22+r.i+%22\nCheck%20out%20date:%20%22+r.o,o=document.createElement(%22textarea%22);o.value=s,document.body.appendChild(o),o.select(),document.execCommand(%22copy%22),document.body.removeChild(o)}}}})()}();" class="bookmarklet-link">Hotel Info</a><br/>
             </div>
 
             <div class="arrow">↓</div>
@@ -282,5 +282,6 @@
 </body>
 
 </html>
+
 
 
