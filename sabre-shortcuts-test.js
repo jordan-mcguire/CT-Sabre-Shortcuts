@@ -130,6 +130,7 @@ let ticketsInView = [];
 let cameFromTicketList = false;
 let cachedPNR = '';
 let cachedTraveler = '';
+let selectedTicket = null; // NEW: Store clicked ticket info
 
 // Extract tickets from Classic *T view only
 function extractClassicTickets(){
@@ -139,8 +140,7 @@ const bodyText = document.body.innerText;
 // Only proceed if we see the header
 if(!bodyText.includes('TKT/TIME LIMIT')) return tickets;
   
-// Match lines like: "2.TE 0815467943373-AU WOOD/M..."
-// Pattern: line number, then TE/TO/ME/MO, then 13-17 digit number
+// FIXED: More flexible regex - match any line containing TE/TO/ME/MO + 13-17 digits
 const lines = bodyText.split('\n');
 let inTicketSection = false;
   
@@ -153,8 +153,8 @@ continue;
 }
     
 if(inTicketSection){
-// Match pattern: "2.TE 0815467943373" or "3.TO 0816338094723"
-const match = line.match(/^\d+\.(TE|TO|ME|MO)\s+(\d{13,17})/);
+// FIXED: Match any line with TE/TO/ME/MO followed by ticket number
+const match = line.match(/^.*(TE|TO|ME|MO)\s+(\d{13,17})/);
 if(match){
 const prefix = match[1];
 const ticketNo = match[2];
@@ -184,8 +184,8 @@ source: 'classic'
 });
 }
       
-// Stop if we hit an empty line or non-ticket line after starting
-if(line === '' || (!line.match(/^\d+\./) && line !== 'TKT/TIME LIMIT')){
+// Stop if we hit an empty line or move to next section
+if(line === '' || line.match(/^[A-Z]+$/)){
 break;
 }
 }
@@ -308,6 +308,9 @@ const repeatDigit=mainPart[mainPart.length-2];
 ticketNo=mainPart+'-'+repeatDigit+conjPart;
 }
 info.ticketInfo.ticketNo=ticketNo;
+}else if(selectedTicket){
+// Use selected ticket number if not found in text (NDC case)
+info.ticketInfo.ticketNo = selectedTicket.ticketNo;
 }
 
 const nameMatch=bodyText.match(/NAME:([^\n]+?)(?:\s{3,}|\n)/);
@@ -382,7 +385,7 @@ let html = '';
 // Show Current Booking Info if available
 if(info.ticketInfo.pnr || info.ticketInfo.paxName){
 html += '<div class="booking-info">';
-html += '<div class="booking-info-header"><spanclass="booking-info-title">📋 Current Booking</span></div>';
+html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
 
 if(info.ticketInfo.pnr && info.ticketInfo.pnr.length === 6){
 html += '<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.ticketInfo.pnr+'</span></div>';
@@ -557,7 +560,7 @@ menu.style.right='20px';
 menu.style.top='auto';
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;bottom:80px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
+style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
 +'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative}'
 +'.menu-header-title{flex:1;text-align:center}'
 +'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
@@ -656,7 +659,7 @@ document.body.appendChild(menu);
 attachEventListeners();
 }
 
-// Function to auto-execute VIEW E-TICKET command
+// FIXED: Function to auto-execute VIEW E-TICKET command with forced refresh
 function executeViewEticket(ticketNo, ticketType){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
@@ -673,6 +676,12 @@ const cleanTicketNo = ticketNo.replace(/[\/-].*$/, '');
 if(ticketsInView.length > 1){
 cameFromTicketList = true;
 }
+
+// Store selected ticket for later use
+selectedTicket = {
+ticketNo: ticketNo,
+type: ticketType
+};
 
 // Determine command based on ticket type
 let command = '';
@@ -695,13 +704,19 @@ cmdInput.focus();
 const inputEvent = new Event('input', { bubbles: true });
 cmdInput.dispatchEvent(inputEvent);
 
-// Click send button
+// Click send button and force refresh after delay
 setTimeout(function(){
 sendButton.click();
+// FIXED: Force menu update after command executes
+setTimeout(function(){
+// Force e-ticket view with cached data
+currentTicketView = 'eticket';
+updateMenu();
+}, 1000);
 }, 100);
 }
 
-// Function to execute *T command
+// FIXED: Function to execute *T command with forced refresh
 function executeViewTicketsCommand(){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
@@ -719,9 +734,13 @@ cmdInput.focus();
 const inputEvent = new Event('input', { bubbles: true });
 cmdInput.dispatchEvent(inputEvent);
 
-// Click send button
+// Click send button and force refresh after delay
 setTimeout(function(){
 sendButton.click();
+// FIXED: Force menu update after *T executes
+setTimeout(function(){
+updateMenu();
+}, 1000);
 }, 100);
 }
 
@@ -914,6 +933,7 @@ if(action==='viewTickets'){
 executeViewTicketsCommand();
 }else if(action==='backToList'){
 cameFromTicketList = false;
+selectedTicket = null;
 // Execute *T command to go back to ticket list
 executeViewTicketsCommand();
 }else if(action==='toggleContact'){
@@ -929,8 +949,7 @@ this.classList.remove('expanded');
 }
 }else if(action==='copyName'){
 if(currentBookingInfo.traveller){
-var temp=document.createElement('textarea');
-temp.value=currentBookingInfo.traveller;
+var temp=document.createElement('textarea');temp.value=currentBookingInfo.traveller;
 document.body.appendChild(temp);
 temp.select();
 document.execCommand('copy');
