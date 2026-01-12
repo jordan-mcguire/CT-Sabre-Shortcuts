@@ -11,7 +11,6 @@ return;
 
 // Check if we're on the refund page
 if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
-// Show PASTE FROM SABRE button
 var pasteButton=document.createElement('div');
 pasteButton.id='sabrePasteButton';
 pasteButton.innerHTML='<button id="pasteFromSabreBtn">📋 PASTE FROM SABRE</button>';
@@ -131,10 +130,8 @@ let cameFromTicketList = false;
 let cachedPNR = '';
 let cachedTraveler = '';
 let selectedTicket = null;
-let forceViewState = null; // NEW: Force specific view state
-let observerEnabled = true; // NEW: Control observer
 
-// Extract tickets from Classic *T view only
+// Extract tickets from Classic *T view
 function extractClassicTickets(){
 let tickets = [];
 const bodyText = document.body.innerText;
@@ -200,19 +197,9 @@ return bodyText.indexOf('ELECTRONIC TICKET RECORD') > -1;
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
-let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:'',hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[]};
+let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[]};
 
-// FIXED: Check forced view state first
-if(forceViewState === 'eticket'){
-currentTicketView = 'eticket';
-info.hasEticket = true;
-}else if(forceViewState === 'list'){
-currentTicketView = 'list';
-const classicTickets = extractClassicTickets();
-info.tickets = classicTickets;
-ticketsInView = classicTickets;
-}else{
-// Normal detection
+// Detect current view
 const viewingETicket = isViewingIndividualETicket();
 const classicTickets = extractClassicTickets();
 
@@ -226,9 +213,8 @@ ticketsInView = classicTickets;
 }else{
 currentTicketView = 'default';
 }
-}
 
-// Extract PNR from response text only
+// Extract PNR
 let passengerLineIndex=-1;
 for(let i=0;i<lines.length;i++){
 const text=lines[i].innerText.trim();
@@ -248,13 +234,13 @@ break;
 }
 }
 
-// Get traveler from response text
+// Get traveler
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
 if(travellerMatch){
 info.traveller=travellerMatch[1].trim();
 }
 
-// Parse name parts
+// Parse name
 if(info.traveller){
 const nameParts=info.traveller.split('/');
 if(nameParts.length>=2){
@@ -263,7 +249,7 @@ info.firstname=nameParts[1].trim();
 }
 }
 
-// Cache PNR and Traveler when found
+// Cache PNR and Traveler
 if(info.pnr && info.pnr.length === 6){
 cachedPNR = info.pnr;
 }
@@ -271,7 +257,7 @@ if(info.traveller){
 cachedTraveler = info.traveller;
 }
 
-// FIXED: Use cached values if not found (instead of "TBA")
+// Use cached if not found
 if(!info.pnr || info.pnr === ''){
 info.pnr = cachedPNR;
 }
@@ -288,7 +274,17 @@ if(luminaMatch)info.luminaId=luminaMatch[1].trim();
 const bookerMatch=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);
 if(bookerMatch)info.booker=bookerMatch[1].trim();
 
-if(bodyText.toUpperCase().indexOf('PENDING CANCELLATION')>-1){
+// NEW: Extract METHOD with line number
+const methodMatch=bodyText.match(/(\d+)\.L¥METHOD-([WMET])/);
+if(methodMatch){
+info.methodLine=parseInt(methodMatch[1]);
+info.method=methodMatch[2];
+}
+
+// NEW: Check for REJECTED status
+if(bodyText.indexOf('B¥BOOKING REJECTED')>-1){
+info.approved='rejected';
+}else if(bodyText.toUpperCase().indexOf('PENDING CANCELLATION')>-1){
 info.approved='cancellation';
 }else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1){
 info.approved=true;
@@ -309,7 +305,7 @@ if(phoneMatch){
 info.phone=phoneMatch[1].trim();
 }
 
-// Extract e-ticket info
+// E-ticket extraction
 if(info.hasEticket){
 const tktMatch=bodyText.match(/TKT:(\d{13,17}(?:\/\d{1,3})?)/);
 if(tktMatch){
@@ -345,12 +341,11 @@ return info;
 }
 
 let currentBookingInfo=extractBookingInfo();
-let lastKnownPNR=currentBookingInfo.pnr;
 
 function buildTicketListHTML(info){
 let html = '';
 
-// Show Current Booking Info if available
+// Current Booking Info
 if(info.pnr||info.traveller){
 html += '<div class="booking-info">';
 html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
@@ -364,6 +359,7 @@ html += '<div class="info-row"><span class="info-label">Traveller:</span> <span 
 html += '</div>';
 }
 
+// Ticket List
 if(info.tickets && info.tickets.length > 0){
 html += '<div class="ticket-list">';
 html += '<div class="ticket-list-header">🎫 SELECT TICKET TO VIEW</div>';
@@ -380,7 +376,8 @@ labels += ' <span class="emd-label">EMD</span>';
 html += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'" data-ticket-no="'+displayNo+'" data-type="'+ticket.type+'">'+displayNo+labels+'</a>';
 });
 
-html += '<div class="ticket-list-note">NOTE: NDC documents may require you to view graphically.</div>';html += '</div>';
+html += '<div class="ticket-list-note">NOTE: NDC documents may require you to view graphically.</div>';
+html += '</div>';
 }
 
 return html;
@@ -389,7 +386,7 @@ return html;
 function buildETicketViewHTML(info){
 let html = '';
 
-// Show Current Booking Info if available
+// Current Booking Info
 if(info.ticketInfo.pnr || info.ticketInfo.paxName){
 html += '<div class="booking-info">';
 html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
@@ -403,6 +400,7 @@ html += '<div class="info-row"><span class="info-label">Traveller:</span> <span 
 html += '</div>';
 }
 
+// Ticket Actions
 html += '<div class="ticket-info-container">';
 html += '<div class="ticket-info-header">🎫 TICKET INFO</div>';
 html += '<div class="ticket-info-content">';
@@ -418,7 +416,7 @@ html += '</div>';
 html += '</div>';
 html += '</div>';
 
-// Show back button ONLY if we came from ticket list with multiple tickets
+// Back button if multiple tickets
 if(cameFromTicketList && ticketsInView.length > 1){
 html += '<div class="back-to-list-container">';
 html += '<a href="#" class="back-to-list-btn" data-action="backToList">← Back to Ticket List</a>';
@@ -426,6 +424,17 @@ html += '</div>';
 }
 
 return html;
+}
+
+// NEW: Get button label based on current view
+function getViewTicketsButtonLabel(){
+if(currentTicketView === 'list'){
+return '🎫 Load Ticket List';
+}else if(currentTicketView === 'eticket'){
+return '🎫 Load Ticket Actions';
+}else{
+return '🎫 View Tickets';
+}
 }
 
 function buildMenuHTML(info){
@@ -451,10 +460,12 @@ return '<div class="menu-header">'
 +'</div>';
 }
 
-// Default view (PNR view)
+// Default PNR view
 let approvalHTML='';
 if(info.booker){
-if(info.approved==='cancellation'){
+if(info.approved==='rejected'){
+approvalHTML='<div class="approval-status rejected">🚫 REJECTED</div>';
+}else if(info.approved==='cancellation'){
 approvalHTML='<div class="approval-status cancellation">⚠️ PENDING CANCELLATION</div>';
 }else if(info.approved===true){
 approvalHTML='<div class="approval-status approved">✓ APPROVED</div>';
@@ -474,8 +485,22 @@ if(info.pnr||info.luminaId)bookingInfoHTML+='<div class="info-divider"></div>';
 if(info.traveller)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>';
 if(info.company)bookingInfoHTML+='<div class="info-row"><span class="info-label">Company:</span> <span class="info-value">'+info.company+'</span></div>';
 if(info.booker)bookingInfoHTML+='<div class="info-row"><span class="info-label">Booker:</span> <span class="info-value">'+info.booker+'</span></div>';
-bookingInfoHTML+=approvalHTML;
 
+// NEW: Method dropdown
+if(info.method){
+const methodNames={W:'Web',M:'Mixed',E:'Email',T:'Telephone'};
+bookingInfoHTML+='<div class="info-row method-row">'
++'<span class="info-label">Method:</span> '
++'<select class="method-dropdown" data-line="'+info.methodLine+'">'
++'<option value="W"'+(info.method==='W'?' selected':'')+'>Web</option>'
++'<option value="M"'+(info.method==='M'?' selected':'')+'>Mixed</option>'
++'<option value="E"'+(info.method==='E'?' selected':'')+'>Email</option>'
++'<option value="T"'+(info.method==='T'?' selected':'')+'>Telephone</option>'
++'</select>'
++'</div>';
+}
+
+bookingInfoHTML+=approvalHTML;
 bookingInfoHTML+='</div>';
 }
 
@@ -507,7 +532,8 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 +'</div>';
 }
 
-let ticketButtonHTML='<a href="#" class="menu-item" data-action="viewTickets">🎫 View Tickets</a>';
+// NEW: Dynamic button label
+let ticketButtonHTML='<a href="#" class="menu-item" data-action="viewTickets">'+getViewTicketsButtonLabel()+'</a>';
 
 let actionButtonsHTML='';
 actionButtonsHTML='<div class="button-row">'
@@ -540,27 +566,16 @@ attachEventListeners();
 }
 }
 
-// FIXED: Improved observer - don't trigger on invalid PNR changes
-let observerTimeout;
+// Minimal observer - only for PNR changes to maintain cache
 const observer=new MutationObserver(function(mutations){
-if(!observerEnabled) return; // Skip if disabled
-
-clearTimeout(observerTimeout);
-observerTimeout = setTimeout(function(){
 const newInfo=extractBookingInfo();
-
-// Only trigger update if PNR actually changed to a valid value
-if(newInfo.pnr && newInfo.pnr.length === 6 && newInfo.pnr !== lastKnownPNR){
-console.log('PNR changed from',lastKnownPNR,'to',newInfo.pnr);
-lastKnownPNR=newInfo.pnr;
-updateMenu();
+// Only cache PNR/traveler, don't update menu
+if(newInfo.pnr && newInfo.pnr.length === 6){
+cachedPNR = newInfo.pnr;
 }
-// ALSO: Update if view changed (e.g., *T executed, tickets detected)
-else if(newInfo.tickets && newInfo.tickets.length > 0 && currentTicketView !== 'list'){
-console.log('Tickets detected, updating to list view');
-updateMenu();
+if(newInfo.traveller){
+cachedTraveler = newInfo.traveller;
 }
-}, 500);
 });
 
 const responseArea=document.querySelector('.area-out');
@@ -591,10 +606,14 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.info-label{font-weight:600;color:#555;margin-right:8px;min-width:70px;font-size:10px}'
 +'.info-value{color:#333;text-align:right;word-break:break-word;flex:1;font-size:10px}'
 +'.info-divider{height:1px;background:#ddd;margin:8px 0}'
++'.method-row{align-items:center}'
++'.method-dropdown{flex:1;padding:4px;border-radius:4px;border:1px solid #ddd;font-size:10px;background:white;cursor:pointer}'
++'.method-dropdown:hover{border-color:#ff2e5f}'
 +'.approval-status{margin-top:8px;padding:6px;border-radius:5px;text-align:center;font-weight:bold;font-size:10px}'
 +'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
 +'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
 +'.approval-status.cancellation{background:#ffebee;color:#c62828;border:1px solid #ef5350;font-weight:bold}'
++'.approval-status.rejected{background:#ff0000;color:white;border:1px solid #cc0000;font-weight:bold}'
 +'.ticket-list{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px}'
 +'.ticket-list-header{font-weight:bold;color:#ff2e5f;font-size:11px;margin-bottom:8px;text-align:center}'
 +'.ticket-list-item{display:block;padding:10px;margin:6px 0;background:white;color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd}'
@@ -605,10 +624,11 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.back-to-list-container{margin:10px 0}'
 +'.back-to-list-btn{display:block;padding:8px 12px;background:#f0f0f0;color:#333;text-decoration:none;border-radius:5px;font-size:10px;text-align:center;font-weight:500;cursor:pointer;transition:all 0.2s ease}'
 +'.back-to-list-btn:hover{background:#e0e0e0;transform:translateX(-2px)}'
++'.save-pnr-message{position:fixed;top:20px;right:20px;background:#28a745;color:white;padding:10px 20px;border-radius:5px;z-index:1000000;font-size:12px;font-weight:bold;animation:fadeOut 3s forwards}@keyframes fadeOut{0%{opacity:1}70%{opacity:1}100%{opacity:0}}'
 +'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
 +'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
 +'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
-+'.copy-row-btn:hover{background:#f0f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
++'.copy-row-btn:hover{background:#f0f0f0;transform:scale(1.05);box-shadow:0 2px 4px rgba(0,0,0,0.1)}'
 +'.copy-row-btn.expanded{background:#ffddee}'
 +'.contact-submenu{display:flex;flex-direction:column;gap:4px;padding:6px;background:#ffe6f0;border-radius:5px;margin:6px 0}'
 +'.ticket-info-container{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin:6px 0}'
@@ -675,7 +695,7 @@ document.body.appendChild(menu);
 attachEventListeners();
 }
 
-// FIXED: Disable observer during command execution
+// Execute ticket view command
 function executeViewEticket(ticketNo, ticketType){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
@@ -712,21 +732,12 @@ cmdInput.focus();
 const inputEvent = new Event('input', { bubbles: true });
 cmdInput.dispatchEvent(inputEvent);
 
-// FIXED: Disable observer, force view, then re-enable
-observerEnabled = false;
-
 setTimeout(function(){
 sendButton.click();
-setTimeout(function(){
-forceViewState = 'eticket';
-updateMenu();
-forceViewState = null;
-observerEnabled = true;
-}, 1000);
 }, 100);
 }
 
-// FIXED: Disable observer during *T execution
+// Execute *T command
 function executeViewTicketsCommand(){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
@@ -742,18 +753,47 @@ cmdInput.focus();
 const inputEvent = new Event('input', { bubbles: true });
 cmdInput.dispatchEvent(inputEvent);
 
-// FIXED: Disable observer, force view, then re-enable
-observerEnabled = false;
+setTimeout(function(){
+sendButton.click();
+}, 100);
+}
+
+// NEW: Update method in PNR
+function updateMethod(lineNumber, newMethod){
+const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
+const sendButton = document.querySelector('button.send-button');
+  
+if(!cmdInput || !sendButton){
+alert('Could not find command input or send button');
+return;
+}
+
+const command = '5' + lineNumber + '¤L¥METHOD-' + newMethod;
+cmdInput.value = command;
+cmdInput.focus();
+
+const inputEvent = new Event('input', { bubbles: true });
+cmdInput.dispatchEvent(inputEvent);
 
 setTimeout(function(){
 sendButton.click();
+// Show save message
 setTimeout(function(){
-forceViewState = 'list';
-updateMenu();
-forceViewState = null;
-observerEnabled = true;
-}, 1000);
+showSavePNRMessage();
+}, 500);
 }, 100);
+}
+
+// NEW: Show save PNR message
+function showSavePNRMessage(){
+const message = document.createElement('div');
+message.className = 'save-pnr-message';
+message.textContent = '⚠️ Please save your PNR';
+document.body.appendChild(message);
+
+setTimeout(function(){
+message.remove();
+}, 3000);
 }
 
 function attachTicketListHandlers(){
@@ -773,7 +813,7 @@ var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn')||e.target.classList.contains('ticket-copy-btn')||e.target.classList.contains('ticket-action-btn')||e.target.classList.contains('ticket-list-item')||e.target.classList.contains('back-to-list-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn')||e.target.classList.contains('ticket-copy-btn')||e.target.classList.contains('ticket-action-btn')||e.target.classList.contains('ticket-list-item')||e.target.classList.contains('back-to-list-btn')||e.target.classList.contains('method-dropdown'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -817,6 +857,16 @@ if(copyBtn){
 copyBtn.addEventListener('click',function(e){
 e.stopPropagation();
 copyBookingInfoRich();
+});
+}
+
+// NEW: Method dropdown handler
+var methodDropdown=menuElement.querySelector('.method-dropdown');
+if(methodDropdown){
+methodDropdown.addEventListener('change',function(e){
+const lineNumber = this.getAttribute('data-line');
+const newMethod = this.value;
+updateMethod(lineNumber, newMethod);
 });
 }
 
@@ -940,13 +990,21 @@ e.preventDefault();
 var action=this.getAttribute('data-action');
 
 if(action==='viewTickets'){
+// NEW: User-driven refresh
+if(currentTicketView === 'default'){
+// First click - execute *T
 executeViewTicketsCommand();
+}else{
+// Subsequent clicks - refresh menu based on current screen
+updateMenu();
+}
 }else if(action==='backToList'){
 cameFromTicketList = false;
 selectedTicket = null;
 executeViewTicketsCommand();
 }else if(action==='toggleContact'){
-var submenu=menuElement.querySelector('.contact-submenu');if(submenu){
+var submenu=menuElement.querySelector('.contact-submenu');
+if(submenu){
 if(submenu.style.display==='none'){
 submenu.style.display='flex';
 this.classList.add('expanded');
