@@ -128,111 +128,10 @@ let isCollapsed = false;
 let currentTicketView = 'default'; // 'default', 'list', or 'eticket'
 let ticketsInView = [];
 let cameFromTicketList = false;
+let cachedPNR = '';
+let cachedTraveler = '';
 
-// Helper: Get PNR from sidebar first, fallback to response text
-function getPNRFromSidebar(){
-// Try sidebar locations
-const pnrRecordLocator = document.querySelector('.pnr-record-locator');
-if(pnrRecordLocator && pnrRecordLocator.textContent.trim()){
-return pnrRecordLocator.textContent.trim();
-}
-
-const boxHeaderPNR = document.querySelector('.box-header-title span:last-child');
-if(boxHeaderPNR && boxHeaderPNR.textContent.trim() && boxHeaderPNR.textContent.trim().length === 6){
-return boxHeaderPNR.textContent.trim();
-}
-
-return null;
-}
-
-// Helper: Get traveler name from sidebar first, fallback to response text
-function getTravelerFromSidebar(){
-const paxSpan = document.querySelector('.pnr-pax');
-if(paxSpan && paxSpan.textContent.trim()){
-let name = paxSpan.textContent.trim();
-// Format: "MACLAREN, MR  BRUCE" -> "MACLAREN/BRUCE MR"
-const parts = name.split(',');
-if(parts.length >= 2){
-const surname = parts[0].trim();
-const rest = parts[1].trim().split(/\s+/);
-// Rearrange: title might be before or after first name
-let firstname = '';
-let title = '';
-if(rest.length >= 2){
-// Check if first word is a title
-if(['MR','MRS','MS','MISS','DR'].includes(rest[0].toUpperCase())){
-title = rest[0];
-firstname = rest.slice(1).join(' ');
-}else{
-firstname = rest[0];
-title = rest.slice(1).join(' ');
-}
-}else{
-firstname = rest.join(' ');
-}
-return surname + '/' + firstname + (title ? ' ' + title : '');
-}
-}
-return null;
-}
-
-// NEW: Extract tickets from sidebar Trip Summary only
-function extractTicketsFromSidebar(){
-let tickets = [];
-  
-// Check if Trip Summary sidebar is expanded
-const ticketsSectionExpanded = document.querySelector('.expandable-box.tickets-section .box-container.expanded');
-  
-if(!ticketsSectionExpanded){
-// Sidebar collapsed or not available
-return null; // Return null to indicate fallback needed
-}
-  
-// Extract from sidebar
-const ticketRows = document.querySelectorAll('.expandable-box.tickets-section .box-row.qa-tickets-box-row');
-  
-ticketRows.forEach(function(row){
-const dataDiv = row.querySelector('.data-grow.text-small.text-ellipsis');
-if(dataDiv){
-const text = dataDiv.textContent.trim();
-// Pattern: "TE 0816041513557-AU TINDA/R KR5I*AWT"
-// Match: (TE|TO|ME|MO) followed by 13-17 digit ticket number
-const match = text.match(/^\s*(TE|TO|ME|MO)\s+(\d{13,17})/);
-if(match){
-const prefix = match[1];
-const ticketNo = match[2];
-        
-let type = 'regular';
-let isNDC = false;
-let isEMD = false;
-        
-if(prefix === 'TO'){
-type = 'ndc';
-isNDC = true;
-}else if(prefix === 'ME'){
-type = 'emd';
-isEMD = true;
-}else if(prefix === 'MO'){
-type = 'ndc-emd';
-isNDC = true;
-isEMD = true;
-}
-        
-tickets.push({
-type: type,
-ticketNo: ticketNo,
-isNDC: isNDC,
-isEMD: isEMD,
-source: 'sidebar'
-});
-}
-}
-});
-  
-return tickets;
-}
-
-// NEW: Extract tickets from Classic *T view
+// Extract tickets from Classic *T view only
 function extractClassicTickets(){
 let tickets = [];
 const bodyText = document.body.innerText;
@@ -241,7 +140,7 @@ const bodyText = document.body.innerText;
 if(!bodyText.includes('TKT/TIME LIMIT')) return tickets;
   
 // Match lines like: "2.TE 0815467943373-AU WOOD/M..."
-// Pattern: line number, then TE or TO, then 13-17 digit number
+// Pattern: line number, then TE/TO/ME/MO, then 13-17 digit number
 const lines = bodyText.split('\n');
 let inTicketSection = false;
   
@@ -295,7 +194,7 @@ break;
 return tickets;
 }
 
-// NEW: Detect if we're viewing individual e-ticket
+// Detect if we're viewing individual e-ticket
 function isViewingIndividualETicket(){
 const bodyText = document.body.innerText;
 return bodyText.indexOf('ELECTRONIC TICKET RECORD') > -1;
@@ -309,45 +208,20 @@ let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',boo
 // Determine current view
 const viewingETicket = isViewingIndividualETicket();
 const classicTickets = extractClassicTickets();
-const sidebarTickets = extractTicketsFromSidebar();
 
 // Set view state
 if(viewingETicket){
 currentTicketView = 'eticket';
 info.hasEticket = true;
-}else if(classicTickets.length > 0 || (sidebarTickets && sidebarTickets.length > 0)){
+}else if(classicTickets.length > 0){
 currentTicketView = 'list';
-// Combine tickets from both sources (deduplicate by ticket number)
-let allTickets = [];
-let ticketNumbers = new Set();
-  
-if(sidebarTickets && sidebarTickets.length > 0){
-sidebarTickets.forEach(function(ticket){
-if(!ticketNumbers.has(ticket.ticketNo)){
-allTickets.push(ticket);
-ticketNumbers.add(ticket.ticketNo);
-}
-});
-}
-  
-classicTickets.forEach(function(ticket){
-if(!ticketNumbers.has(ticket.ticketNo)){
-allTickets.push(ticket);
-ticketNumbers.add(ticket.ticketNo);
-}
-});
-  
-info.tickets = allTickets;
-ticketsInView = allTickets;
+info.tickets = classicTickets;
+ticketsInView = classicTickets;
 }else{
 currentTicketView = 'default';
 }
 
-// Always try to get PNR from sidebar first
-info.pnr = getPNRFromSidebar();
-
-// Fallback: Get PNR from response text
-if(!info.pnr){
+// Extract PNR from response text only
 let passengerLineIndex=-1;
 for(let i=0;i<lines.length;i++){
 const text=lines[i].innerText.trim();
@@ -366,22 +240,11 @@ break;
 }
 }
 }
-}
 
-// Last resort
-if(!info.pnr||info.pnr===''){
-info.pnr='TBA';
-}
-
-// Always try to get traveler from sidebar first
-info.traveller = getTravelerFromSidebar();
-
-// Fallback: Get from response text
-if(!info.traveller){
+// Get from response text
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
 if(travellerMatch){
 info.traveller=travellerMatch[1].trim();
-}
 }
 
 // Parse name parts if we have traveller
@@ -390,24 +253,15 @@ const nameParts=info.traveller.split('/');
 if(nameParts.length>=2){
 info.surname=nameParts[0].trim();
 info.firstname=nameParts[1].trim();
-}else{
-// Try comma format
-const commaParts=info.traveller.split(',');
-if(commaParts.length>=2){
-info.surname=commaParts[0].trim();
-const rest = commaParts[1].trim().split(/\s+/);
-if(rest.length >= 2){
-if(['MR','MRS','MS','MISS','DR'].includes(rest[0].toUpperCase())){
-info.firstname = rest.slice(1).join(' ') + ' ' + rest[0];
-}
-  else{
-info.firstname = rest.join(' ');
-}
-}else{
-info.firstname = rest.join(' ');
 }
 }
+
+// Cache PNR and Traveler for later use (NDC tickets)
+if(info.pnr && info.pnr.length === 6){
+cachedPNR = info.pnr;
 }
+if(info.traveller){
+cachedTraveler = info.traveller;
 }
 
 const companyMatch=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);
@@ -460,16 +314,16 @@ const nameMatch=bodyText.match(/NAME:([^\n]+?)(?:\s{3,}|\n)/);
 if(nameMatch){
 info.ticketInfo.paxName=nameMatch[1].trim();
 }else{
-// Use sidebar traveler name
-info.ticketInfo.paxName = info.traveller;
+// Use cached traveler name (for NDC tickets shown graphically)
+info.ticketInfo.paxName = cachedTraveler;
 }
 
 const pnrMatch=bodyText.match(/PNR:([A-Z0-9]{6})/);
 if(pnrMatch){
 info.ticketInfo.pnr=pnrMatch[1];
 }else{
-// Use sidebar PNR if not in e-ticket text
-info.ticketInfo.pnr = info.pnr;
+// Use cached PNR
+info.ticketInfo.pnr = cachedPNR;
 }
 }
 
@@ -479,18 +333,23 @@ return info;
 let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
-// NEW: Build ticket list menu (with View Tickets fallback)
+// Build ticket list menu with View Tickets button
 function buildTicketListHTML(info){
-let html = '<div class="booking-info">';
+let html = '';
+
+// Show Current Booking Info if available
+if(info.pnr||info.traveller){
+html += '<div class="booking-info">';
 html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
 
-if(info.pnr && info.pnr !== 'TBA'){
+if(info.pnr && info.pnr.length === 6){
 html += '<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
 }
 if(info.traveller){
 html += '<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>';
 }
 html += '</div>';
+}
 
 // Check if we have tickets
 if(info.tickets && info.tickets.length > 0){
@@ -506,36 +365,33 @@ labels += ' <span class="ndc-label">NDC</span>';
 if(ticket.isEMD){
 labels += ' <span class="emd-label">EMD</span>';
 }
-html += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'" data-ticket-no="'+displayNo+'">'+displayNo+labels+'</a>';
+html += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'" data-ticket-no="'+displayNo+'" data-type="'+ticket.type+'">'+displayNo+labels+'</a>';
 });
 
-html += '</div>';
-}else{
-// Fallback: Show "View Tickets" button
-html += '<div class="ticket-fallback">';
-html += '<a href="#" class="menu-item" data-action="viewTickets">🎫 View Tickets (*T)</a>';
+html += '<div class="ticket-list-note">NOTE: NDC documents may require you to view graphically.</div>';
 html += '</div>';
 }
 
 return html;
 }
 
-// NEW: Build individual e-ticket view menu
+// Build individual e-ticket view menu
 function buildETicketViewHTML(info){
-let html = '<div class="booking-info">';
-html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
+let html = '';
 
-if(info.ticketInfo.pnr || info.pnr){
-const pnr = info.ticketInfo.pnr || info.pnr;
-if(pnr && pnr !== 'TBA'){
-html += '<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+pnr+'</span></div>';
+// Show Current Booking Info if available
+if(info.ticketInfo.pnr || info.ticketInfo.paxName){
+html += '<div class="booking-info">';
+html += '<div class="booking-info-header"><spanclass="booking-info-title">📋 Current Booking</span></div>';
+
+if(info.ticketInfo.pnr && info.ticketInfo.pnr.length === 6){
+html += '<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.ticketInfo.pnr+'</span></div>';
 }
-}
-if(info.ticketInfo.paxName || info.traveller){
-const name = info.ticketInfo.paxName || info.traveller;
-html += '<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+name+'</span></div>';
+if(info.ticketInfo.paxName){
+html += '<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.ticketInfo.paxName+'</span></div>';
 }
 html += '</div>';
+}
 
 html += '<div class="ticket-info-container">';
 html += '<div class="ticket-info-header">🎫 TICKET INFO</div>';
@@ -552,7 +408,7 @@ html += '</div>';
 html += '</div>';
 html += '</div>';
 
-// Show back button ONLY if we came from ticket list (multiple tickets)
+// Show back button ONLY if we came from ticket list with multiple tickets
 if(cameFromTicketList && ticketsInView.length > 1){
 html += '<div class="back-to-list-container">';
 html += '<a href="#" class="back-to-list-btn" data-action="backToList">← Back to Ticket List</a>';
@@ -602,7 +458,7 @@ if(info.pnr||info.traveller||info.company){
 bookingInfoHTML='<div class="booking-info">'
 +'<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span><span class="copy-btn">Copy</span></div>';
 
-if(info.pnr && info.pnr !== 'TBA')bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
+if(info.pnr && info.pnr.length === 6)bookingInfoHTML+='<div class="info-row"><span class="info-label">Sabre PNR:</span> <span class="info-value">'+info.pnr+'</span></div>';
 if(info.luminaId)bookingInfoHTML+='<div class="info-row"><span class="info-label">Lumina ID:</span> <span class="info-value">'+info.luminaId+'</span></div>';
 if(info.pnr||info.luminaId)bookingInfoHTML+='<div class="info-divider"></div>';
 if(info.traveller)bookingInfoHTML+='<div class="info-row"><span class="info-label">Traveller:</span> <span class="info-value">'+info.traveller+'</span></div>';
@@ -641,6 +497,8 @@ contactSubmenuHTML='<div class="contact-submenu" style="display:none;">'
 +'</div>';
 }
 
+let ticketButtonHTML='<a href="#" class="menu-item" data-action="viewTickets">🎫 View Tickets</a>';
+
 let actionButtonsHTML='';
 actionButtonsHTML='<div class="button-row">'
 +'<a href="#" class="menu-item menu-item-half" data-action="viewSerko">View in Serko</a>'
@@ -656,6 +514,7 @@ return '<div class="menu-header">'
 +bookingInfoHTML
 +copyRowHTML
 +contactSubmenuHTML
++ticketButtonHTML
 +notesHTML
 +actionButtonsHTML
 +'<a href="#" class="menu-item" data-action="tripProposal">Trip Proposal Tidy</a>'
@@ -677,7 +536,7 @@ const observer=new MutationObserver(function(mutations){
 clearTimeout(observerTimeout);
 observerTimeout = setTimeout(function(){
 const newInfo=extractBookingInfo();
-if(newInfo.pnr&&newInfo.pnr!==lastKnownPNR){
+if(newInfo.pnr && newInfo.pnr.length === 6 && newInfo.pnr!==lastKnownPNR){
 console.log('PNR changed from',lastKnownPNR,'to',newInfo.pnr);
 lastKnownPNR=newInfo.pnr;
 updateMenu();
@@ -698,13 +557,14 @@ menu.style.right='20px';
 menu.style.top='auto';
 
 var style=document.createElement('style');
-style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
+style.textContent='#sabreShortcutsMenu{position:fixed;bottom:80px;right:20px;width:280px;background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);border-radius:10px;box-shadow:0 4px 20px rgba(0,0,0,0.3);padding:0;z-index:999999;font-family:Aptos,Arial,sans-serif;max-height:90vh;cursor:move}'
 +'.menu-header{color:white;font-size:10px;font-weight:bold;text-align:center;padding:12px;border-bottom:1px solid rgba(255,255,255,0.3);display:flex;justify-content:space-between;align-items:center;cursor:move;user-select:none;position:relative}'
 +'.menu-header-title{flex:1;text-align:center}'
 +'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
 +'.collapse-btn:hover{opacity:0.8}'
 +'.menu-content{padding:12px;max-height:calc(90vh - 60px);overflow-y:auto}'
-+'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'+'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
++'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
++'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
 +'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
 +'.copy-btn{background:#fff3cd;color:#ff2e5f;padding:4px 8px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid #ffd700}'
 +'.copy-btn:hover{background:#ffe066}'
@@ -720,9 +580,9 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.ticket-list-header{font-weight:bold;color:#ff2e5f;font-size:11px;margin-bottom:8px;text-align:center}'
 +'.ticket-list-item{display:block;padding:10px;margin:6px 0;background:white;color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd}'
 +'.ticket-list-item:hover{background:#f0f0f0;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
++'.ticket-list-note{margin-top:10px;padding-top:8px;border-top:1px solid #ddd;font-size:8px;color:#666;text-align:center;font-style:italic}'
 +'.ndc-label{background:#ff2e5f;color:white;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;margin-left:8px}'
 +'.emd-label{background:#ffc107;color:#333;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:bold;margin-left:8px}'
-+'.ticket-fallback{margin:10px 0}'
 +'.back-to-list-container{margin:10px 0}'
 +'.back-to-list-btn{display:block;padding:8px 12px;background:#f0f0f0;color:#333;text-decoration:none;border-radius:5px;font-size:10px;text-align:center;font-weight:500;cursor:pointer;transition:all 0.2s ease}'
 +'.back-to-list-btn:hover{background:#e0e0e0;transform:translateX(-2px)}'
@@ -796,8 +656,8 @@ document.body.appendChild(menu);
 attachEventListeners();
 }
 
-// NEW: Function to auto-execute VIEW E-TICKET command
-function executeViewEticket(ticketNo){
+// Function to auto-execute VIEW E-TICKET command
+function executeViewEticket(ticketNo, ticketType){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
   
@@ -814,8 +674,21 @@ if(ticketsInView.length > 1){
 cameFromTicketList = true;
 }
 
+// Determine command based on ticket type
+let command = '';
+if(ticketType === 'emd'){
+command = 'WEMD*T' + cleanTicketNo;
+}else if(ticketType === 'ndc-emd'){
+// MO type - show message instead
+alert('This is an NDC EMD. Please view this document graphically in the Ticketing tab.');
+return;
+}else{
+// TE or TO
+command = 'WETR*T' + cleanTicketNo;
+}
+
 // Set the command
-cmdInput.value = 'WETR*T' + cleanTicketNo;
+cmdInput.value = command;
 cmdInput.focus();
 
 // Trigger input event
@@ -828,7 +701,7 @@ sendButton.click();
 }, 100);
 }
 
-// NEW: Function to execute *T command
+// Function to execute *T command
 function executeViewTicketsCommand(){
 const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
 const sendButton = document.querySelector('button.send-button');
@@ -852,14 +725,15 @@ sendButton.click();
 }, 100);
 }
 
-// NEW: Attach handlers to ticket list items
+// Attach handlers to ticket list items
 function attachTicketListHandlers(){
 const ticketItems = document.querySelectorAll('.ticket-list-item');
 ticketItems.forEach(function(item){
 item.addEventListener('click', function(e){
 e.preventDefault();
 const ticketNo = this.getAttribute('data-ticket-no');
-executeViewEticket(ticketNo);
+const ticketType = this.getAttribute('data-type');
+executeViewEticket(ticketNo, ticketType);
 });
 });
 }
@@ -923,7 +797,7 @@ async function copyBookingInfoRich(){
 let htmlText='<div>';
 let plainText='';
 
-if(currentBookingInfo.pnr && currentBookingInfo.pnr !== 'TBA'){
+if(currentBookingInfo.pnr && currentBookingInfo.pnr.length === 6){
 htmlText+='<p><strong>GDS Reference:</strong> '+currentBookingInfo.pnr+'</p>';
 plainText+='GDS Reference: '+currentBookingInfo.pnr+'\n';
 }
@@ -993,13 +867,13 @@ async function copyAllTicketInfo(){
 let htmlText='<div>';
 htmlText+='<p><strong>Ticket Number:</strong> '+currentBookingInfo.ticketInfo.ticketNo+'</p>';
 htmlText+='<p><strong>Passenger Name:</strong> '+currentBookingInfo.ticketInfo.paxName+'</p>';
-htmlText+='<p><strong>PNR:</strong> '+(currentBookingInfo.ticketInfo.pnr || currentBookingInfo.pnr)+'</p>';
+htmlText+='<p><strong>PNR:</strong> '+(currentBookingInfo.ticketInfo.pnr || cachedPNR)+'</p>';
 htmlText+='</div>';
 
 let plainText='';
 plainText+='Ticket Number: '+currentBookingInfo.ticketInfo.ticketNo+'\n';
 plainText+='Passenger Name: '+currentBookingInfo.ticketInfo.paxName+'\n';
-plainText+='PNR: '+(currentBookingInfo.ticketInfo.pnr || currentBookingInfo.pnr)+'\n';
+plainText+='PNR: '+(currentBookingInfo.ticketInfo.pnr || cachedPNR)+'\n';
 
 try{
 const blob=new Blob([htmlText],{type:'text/html'});
@@ -1101,8 +975,8 @@ document.execCommand('copy');
 document.body.removeChild(temp);
 }
 }else if(action==='copyTicketPNR'){
-const pnr = currentBookingInfo.ticketInfo.pnr || currentBookingInfo.pnr;
-if(pnr && pnr !== 'TBA'){
+const pnr = currentBookingInfo.ticketInfo.pnr || cachedPNR;
+if(pnr && pnr.length === 6){
 var temp=document.createElement('textarea');
 temp.value=pnr;
 document.body.appendChild(temp);
@@ -1116,7 +990,7 @@ copyAllTicketInfo();
 // Prepare refund data with proper name format (SURNAME/FIRST TITLE)
 let ticketNo = currentBookingInfo.ticketInfo.ticketNo;
 let paxName = currentBookingInfo.ticketInfo.paxName;
-let pnr = currentBookingInfo.ticketInfo.pnr || currentBookingInfo.pnr;
+let pnr = currentBookingInfo.ticketInfo.pnr || cachedPNR;
 
 // Ensure name is in correct format for refund
 // If name is in "Surname, First Title" format, convert to "SURNAME/FIRST TITLE"
@@ -1143,7 +1017,7 @@ window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/
 }else if(action==='toggleNotes'){
 // Handled above
 }else if(action==='copyPNR'){
-if(currentBookingInfo.pnr && currentBookingInfo.pnr !== 'TBA'){
+if(currentBookingInfo.pnr && currentBookingInfo.pnr.length === 6){
 var temp=document.createElement('textarea');
 temp.value=currentBookingInfo.pnr;
 document.body.appendChild(temp);
