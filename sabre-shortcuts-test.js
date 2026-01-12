@@ -125,11 +125,111 @@ proposalObserver.observe(sabreBody,{childList:true,subtree:true});
 setTimeout(injectTidyButton,500);
   
 let isCollapsed = false;
+let currentTicketView = 'list'; // 'list' or 'detail'
+let selectedTicketIndex = -1;
+
+// NEW: Extract tickets from both Classic and Graphic views
+function extractTickets(){
+let tickets = [];
+const bodyText = document.body.innerText;
+const lines = document.querySelectorAll('.dn-line.text-line');
+  
+// Check if we're in Classic view (TKT/TIME LIMIT section)
+let inTicketSection = false;
+for(let i = 0; i < lines.length; i++){
+const text = lines[i].innerText.trim();
+if(text === 'TKT/TIME LIMIT'){
+inTicketSection = true;
+continue;
+}
+if(inTicketSection && text.match(/^\d+\./)){
+// Extract ticket from classic view
+// Examples:
+// 2.TE 1172759184574-AU CARFO/G KR5I*AWT 1455/07AUG*I
+// 6.TE 0016040740016/17-AU CARFO/G KR5I*AB9 1032/02DEC*I
+const match = text.match(/^\d+\.\s*(TE|TO)\s+(\d+(?:\/\d{1,3})?)/);
+if(match){
+tickets.push({
+type: 'classic',
+ticketNo: match[2],
+fullLine: text,
+source: 'classic'
+});
+}
+}
+if(inTicketSection && text.trim() === ''){
+break;
+}
+}
+
+// Check for Graphic view NDC tickets
+const ndcTicketDrawers = document.querySelectorAll('.dn-line-group.response-segment');
+ndcTicketDrawers.forEach(function(drawer){
+const ticketNumDiv = drawer.querySelector('.number-col .itinerary-segment-value');
+if(ticketNumDiv){
+const ticketNo = ticketNumDiv.textContent.trim();
+if(ticketNo && ticketNo.match(/^\d+/)){
+tickets.push({
+type: 'ndc',
+ticketNo: ticketNo,
+drawer: drawer,
+source: 'graphic'
+});
+}
+}
+});
+
+return tickets;
+}
+
+// NEW: Extract NDC ticket details from drawer
+function extractNDCTicketDetails(drawer){
+let details = {
+ticketNo: '',
+paxName: '',
+pnr: '',
+issueDate: ''
+};
+
+// Get ticket number
+const ticketNumDiv = drawer.querySelector('.number-col .itinerary-segment-value');
+if(ticketNumDiv){
+details.ticketNo = ticketNumDiv.textContent.trim();
+}
+
+// Get issue date
+const issueDateDiv = drawer.querySelector('.issue-date-col .itinerary-segment-value');
+if(issueDateDiv){
+details.issueDate = issueDateDiv.textContent.trim();
+}
+
+// Get ticketing details (contains pax name)
+const ticketingDetailsDiv = drawer.querySelector('.details-col--extended .itinerary-segment-value');
+if(ticketingDetailsDiv){
+const detailsText = ticketingDetailsDiv.textContent.trim();
+// Format: "XX Maclaren/B KR5I*AWT"
+const nameMatch = detailsText.match(/^[A-Z]{2}\s+([^\s]+)/);
+if(nameMatch){
+details.paxName = nameMatch[1];
+}
+}
+
+// Get PNR from sidebar if available
+const pnrElement = document.querySelector('.pnr-record-locator');
+if(pnrElement){
+details.pnr = pnrElement.textContent.trim();
+}
+
+return details;
+}
 
 function extractBookingInfo(){
 const bodyText=document.body.innerText;
 const lines=document.querySelectorAll('.dn-line.text-line');
-let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:'',hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''}};
+let info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',approved:false,notes:[],email:'',phone:'',hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[]};
+
+// Extract tickets (both classic and NDC)
+info.tickets = extractTickets();
 
 let passengerLineIndex=-1;
 for(let i=0;i<lines.length;i++){
@@ -151,7 +251,13 @@ break;
 }
 
 if(!info.pnr||info.pnr===''){
+// Try sidebar
+const pnrElement = document.querySelector('.pnr-record-locator');
+if(pnrElement){
+info.pnr = pnrElement.textContent.trim();
+}else{
 info.pnr='TBA';
+}
 }
 
 const travellerMatch=bodyText.match(/1\.1(.+?)(?=\n|$)/);
@@ -161,6 +267,19 @@ const nameParts=info.traveller.split('/');
 if(nameParts.length>=2){
 info.surname=nameParts[0].trim();
 info.firstname=nameParts[1].trim();
+}
+}
+
+// Try sidebar for traveler name
+if(!info.traveller){
+const paxSpan = document.querySelector('.pnr-pax');
+if(paxSpan){
+info.traveller = paxSpan.textContent.trim();
+const nameParts=info.traveller.split(',');
+if(nameParts.length>=2){
+info.surname=nameParts[0].trim();
+info.firstname=nameParts[1].trim();
+}
 }
 }
 
@@ -175,7 +294,7 @@ if(bookerMatch)info.booker=bookerMatch[1].trim();
 
 // Check booking status in priority order
 if(bodyText.toUpperCase().indexOf('PENDING CANCELLATION')>-1){
-info.approved='cancellation';  // Special flag for pending cancellation
+info.approved='cancellation';
 }else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1){
 info.approved=true;
 }else{
@@ -228,8 +347,96 @@ return info;
 let currentBookingInfo=extractBookingInfo();
 let lastKnownPNR=currentBookingInfo.pnr;
 
+// NEW: Build ticket list menu
+function buildTicketListHTML(tickets){
+if(!tickets || tickets.length === 0){
+return '<div class="ticket-list-empty">No tickets found</div>';
+}
+
+let html = '<div class="ticket-list">';
+html += '<div class="ticket-list-header">🎫 SELECT TICKET</div>';
+tickets.forEach(function(ticket, index){
+const displayNo = ticket.ticketNo.replace(/\/.+$$/, '').replace(/-.+$$/, '');
+html += '<a href="#" class="ticket-list-item" data-ticket-index="'+index+'">'+displayNo+'</a>';
+});
+html += '</div>';
+return html;
+}
+
+// NEW: Build ticket detail menu
+function buildTicketDetailHTML(ticket, info){
+let ticketNo = ticket.ticketNo;
+let paxName = info.traveller || '';
+let pnr = info.pnr || '';
+
+// If NDC ticket, extract from drawer
+if(ticket.type === 'ndc' && ticket.drawer){
+const ndcDetails = extractNDCTicketDetails(ticket.drawer);
+ticketNo = ndcDetails.ticketNo;
+paxName = ndcDetails.paxName;
+pnr = ndcDetails.pnr;
+}
+
+// Prepare ticket number for REFUND (with conjunction transpose)
+let refundTicketNo = ticketNo;
+if(ticketNo.includes('/')){
+const parts = ticketNo.split('/');
+  const mainPart = parts[0];
+const conjPart = parts[1];
+const repeatDigit = mainPart[mainPart.length - 2];
+refundTicketNo = mainPart + '-' + repeatDigit + conjPart;
+}else if(ticketNo.includes('-')){
+refundTicketNo = ticketNo; // Already in refund format
+}
+
+// Prepare ticket number for VIEW (strip conjunction)
+let viewTicketNo = ticketNo.replace(/\/.*$$/, '').replace(/-.*$$/, '');
+
+let html = '<div class="ticket-detail">';
+html += '<div class="ticket-detail-header">';
+html += '<a href="#" class="back-to-list">← Back to Ticket List</a>';
+html += '</div>';
+html += '<div class="ticket-detail-content">';
+html += '<div class="ticket-info-display">';
+html += '<div class="info-row"><span class="info-label">Ticket:</span> <span class="info-value">'+ticketNo+'</span></div>';
+html += '<div class="info-row"><span class="info-label">Passenger:</span> <span class="info-value">'+paxName+'</span></div>';
+html += '<div class="info-row"><span class="info-label">PNR:</span> <span class="info-value">'+pnr+'</span></div>';
+html += '</div>';
+html += '<div class="ticket-action-buttons">';
+html += '<a href="#" class="ticket-action-btn" data-action="viewEticket" data-ticket="'+viewTicketNo+'">VIEW E-TICKET</a>';
+html += '<a href="#" class="ticket-action-btn" data-action="copyTicket" data-ticket="'+ticketNo+'" data-name="'+paxName+'" data-pnr="'+pnr+'">COPY ALL</a>';
+html += '<a href="#" class="ticket-action-btn" data-action="refundTicket" data-ticket="'+refundTicketNo+'" data-name="'+paxName+'" data-pnr="'+pnr+'">REFUND</a>';
+html += '</div>';
+html += '</div>';
+html += '</div>';
+return html;
+}
+
 function buildMenuHTML(info){
 const isEticketView=info.hasEticket && !info.luminaId;
+
+// NEW: Check if we should show ticket menu
+if(currentTicketView === 'list' && info.tickets && info.tickets.length > 0){
+return '<div class="menu-header">'
++'<button class="collapse-btn" title="Collapse">▼</button>'
++'<span class="menu-header-title">CT SABRE SHORTCUTS</span>'
++'<div class="close-btn">×</div>'
++'</div>'
++'<div class="menu-content">'
++buildTicketListHTML(info.tickets)
++'</div>';
+}
+
+if(currentTicketView === 'detail' && selectedTicketIndex >= 0 && info.tickets[selectedTicketIndex]){
+return '<div class="menu-header">'
++'<button class="collapse-btn" title="Collapse">▼</button>'
++'<span class="menu-header-title">CT SABRE SHORTCUTS</span>'
++'<div class="close-btn">×</div>'
++'</div>'
++'<div class="menu-content">'
++buildTicketDetailHTML(info.tickets[selectedTicketIndex], info)
++'</div>';
+}
 
 let approvalHTML='';
 if(info.booker && !isEticketView){
@@ -352,6 +559,9 @@ updateMenu();
 if(newInfo.hasEticket!==currentBookingInfo.hasEticket){
 updateMenu();
 }
+if(newInfo.tickets.length !== currentBookingInfo.tickets.length){
+updateMenu();
+}
 });
 
 const responseArea=document.querySelector('.area-out');
@@ -372,7 +582,7 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.menu-header-title{flex:1;text-align:center}'
 +'.collapse-btn{background:none;border:none;color:white;font-size:14px;cursor:pointer;padding:0;width:20px;height:20px;display:flex;align-items:center;justify-content:center;line-height:1}'
 +'.collapse-btn:hover{opacity:0.8}'
-+'.menu-content{padding:12px}'
++'.menu-content{padding:12px;max-height:calc(90vh - 60px);overflow-y:auto}'
 +'.booking-info{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px;font-size:10px;position:relative}'
 +'.booking-info-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}'
 +'.booking-info-title{font-weight:bold;color:#ff2e5f;font-size:11px}'
@@ -386,6 +596,17 @@ style.textContent='#sabreShortcutsMenu{position:fixed;bottom:60px;right:20px;wid
 +'.approval-status.approved{background:#d4edda;color:#155724;border:1px solid #c3e6cb}'
 +'.approval-status.pending{background:#fff3cd;color:#856404;border:1px solid #ffeaa7}'
 +'.approval-status.cancellation{background:#ffebee;color:#c62828;border:1px solid #ef5350;font-weight:bold}'
++'.ticket-list{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px}'
++'.ticket-list-header{font-weight:bold;color:#ff2e5f;font-size:11px;margin-bottom:8px;text-align:center}'
++'.ticket-list-item{display:block;padding:10px;margin:6px 0;background:white;color:#333;text-decoration:none;border-radius:5px;transition:all 0.3s ease;font-size:11px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd}'
++'.ticket-list-item:hover{background:#f0f0f0;transform:translateX(-3px);box-shadow:0 2px 8px rgba(0,0,0,0.2)}'
++'.ticket-list-empty{text-align:center;padding:20px;color:#666;font-size:11px}'
++'.ticket-detail{background:rgba(255,255,255,0.95);border-radius:8px;padding:10px;margin-bottom:10px}'
++'.ticket-detail-header{margin-bottom:10px}'
++'.back-to-list{display:inline-block;padding:6px 12px;background:#f0f0f0;color:#333;text-decoration:none;border-radius:5px;font-size:10px;font-weight:500;cursor:pointer;transition:all 0.2s ease}'
++'.back-to-list:hover{background:#e0e0e0;transform:translateX(-2px)}'
++'.ticket-info-display{background:white;border-radius:5px;padding:10px;margin-bottom:10px}'
++'.ticket-action-buttons{display:flex;flex-direction:column;gap:6px}'
 +'.copy-row{display:flex;align-items:center;gap:4px;margin:6px 0;padding:6px;background:rgba(255,255,255,0.95);border-radius:5px}'
 +'.copy-row-label{font-size:9px;font-weight:bold;color:#ff2e5f;margin-right:4px}'
 +'.copy-row-btn{flex:1;padding:6px 4px;background:white;color:#333;text-decoration:none;border-radius:4px;font-size:9px;text-align:center;font-weight:500;cursor:pointer;border:1px solid #ddd;transition:all 0.2s ease}'
@@ -456,12 +677,36 @@ document.body.appendChild(menu);
 attachEventListeners();
 }
 
+// NEW: Function to auto-execute VIEW E-TICKET command
+function executeViewEticket(ticketNo){
+const cmdInput = document.querySelector('input.command-line-input[name="cmdln"]');
+const sendButton = document.querySelector('button.send-button');
+  
+if(!cmdInput || !sendButton){
+alert('Could not find command input or send button');
+return;
+}
+
+// Set the command
+cmdInput.value = 'WETR*T' + ticketNo;
+cmdInput.focus();
+
+// Trigger input event
+const inputEvent = new Event('input', { bubbles: true });
+cmdInput.dispatchEvent(inputEvent);
+
+// Click send button
+setTimeout(function(){
+sendButton.click();
+}, 100);
+}
+
 function attachEventListeners(){
 var isDragging=false,currentX,currentY,initialX,initialY,xOffset=0,yOffset=0;
 var menuElement=document.getElementById('sabreShortcutsMenu');
 
 menuElement.addEventListener('mousedown',function(e){
-if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn')||e.target.classList.contains('ticket-copy-btn')||e.target.classList.contains('ticket-action-btn'))return;
+if(e.target.classList.contains('close-btn')||e.target.classList.contains('collapse-btn')||e.target.classList.contains('menu-item')||e.target.classList.contains('copy-btn')||e.target.classList.contains('copy-row-btn')||e.target.classList.contains('ticket-copy-btn')||e.target.classList.contains('ticket-action-btn')||e.target.classList.contains('ticket-list-item')||e.target.classList.contains('back-to-list'))return;
 initialX=e.clientX-xOffset;
 initialY=e.clientY-yOffset;
 isDragging=true;
@@ -505,6 +750,28 @@ if(copyBtn){
 copyBtn.addEventListener('click',function(e){
 e.stopPropagation();
 copyBookingInfoRich();
+});
+}
+
+// NEW: Ticket list item click handlers
+var ticketListItems = menuElement.querySelectorAll('.ticket-list-item');
+ticketListItems.forEach(function(item){
+item.addEventListener('click', function(e){
+e.preventDefault();
+selectedTicketIndex = parseInt(this.getAttribute('data-ticket-index'));
+currentTicketView = 'detail';
+updateMenu();
+});
+});
+
+// NEW: Back to list handler
+var backToListBtn = menuElement.querySelector('.back-to-list');
+if(backToListBtn){
+backToListBtn.addEventListener('click', function(e){
+e.preventDefault();
+currentTicketView = 'list';
+selectedTicketIndex = -1;
+updateMenu();
 });
 }
 
@@ -641,7 +908,49 @@ item.addEventListener('click',function(e){
 e.preventDefault();
 var action=this.getAttribute('data-action');
 
-if(action==='toggleContact'){
+if(action==='viewEticket'){
+const ticketNo = this.getAttribute('data-ticket');
+executeViewEticket(ticketNo);
+}else if(action==='copyTicket'){
+const ticketNo = this.getAttribute('data-ticket');
+const paxName = this.getAttribute('data-name');
+const pnr = this.getAttribute('data-pnr');
+let htmlText='<div>';
+htmlText+='<p><strong>Ticket Number:</strong> '+ticketNo+'</p>';
+htmlText+='<p><strong>Passenger Name:</strong> '+paxName+'</p>';
+htmlText+='<p><strong>PNR:</strong> '+pnr+'</p>';
+htmlText+='</div>';
+let plainText='';
+plainText+='Ticket Number: '+ticketNo+'\n';
+plainText+='Passenger Name: '+paxName+'\n';
+plainText+='PNR: '+pnr+'\n';
+navigator.clipboard.write([
+new ClipboardItem({
+'text/html':new Blob([htmlText],{type:'text/html'}),
+'text/plain':new Blob([plainText.trim()],{type:'text/plain'})
+})
+]).catch(function(err){
+var temp=document.createElement('textarea');
+temp.value=plainText.trim();
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+});
+}else if(action==='refundTicket'){
+const ticketNo = this.getAttribute('data-ticket');
+const paxName = this.getAttribute('data-name');
+const pnr = this.getAttribute('data-pnr');
+var refundData='##SABRE_REFUND##\nTICKET: '+ticketNo+'\nNAME: '+paxName+'\nPNR: '+pnr;
+var temp=document.createElement('textarea');
+temp.value=refundData;
+document.body.appendChild(temp);
+temp.select();
+document.execCommand('copy');
+document.body.removeChild(temp);
+alert('Refund data copied!\n\nWhen the refund page opens:\n1. Click your Sabre Shortcuts bookmarklet again\n2. Click the "PASTE FROM SABRE" button\n\nThe fields will auto-fill!');
+window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create','_blank');
+}else if(action==='toggleContact'){
 var submenu=menuElement.querySelector('.contact-submenu');
 if(submenu){
 if(submenu.style.display==='none'){
@@ -710,16 +1019,6 @@ document.body.removeChild(temp);
 }
 }else if(action==='copyAllTicket'){
 copyAllTicketInfo();
-}else if(action==='refundTicket'){
-var refundData='##SABRE_REFUND##\nTICKET: '+currentBookingInfo.ticketInfo.ticketNo+'\nNAME: '+currentBookingInfo.ticketInfo.paxName+'\nPNR: '+currentBookingInfo.ticketInfo.pnr;
-var temp=document.createElement('textarea');
-temp.value=refundData;
-document.body.appendChild(temp);
-temp.select();
-document.execCommand('copy');
-document.body.removeChild(temp);
-alert('Refund data copied!\n\nWhen the refund page opens:\n1. Click your Sabre Shortcuts bookmarklet again\n2. Click the "PASTE FROM SABRE" button\n\nThe fields will auto-fill!');
-window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create','_blank');
 }else if(action==='toggleNotes'){
 // Handled above
 }else if(action==='copyPNR'){
