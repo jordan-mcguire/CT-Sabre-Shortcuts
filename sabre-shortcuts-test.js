@@ -651,18 +651,23 @@ if(newInfo.traveller && newInfo.traveller.trim() !== ''){
 cachedTraveler = newInfo.traveller;
 }
 
-// Update menu ONLY if PNR actually changed (like old code)
+// Track view changes
+const newView = newInfo.hasEticket ? 'eticket' : (newInfo.tickets.length > 0 ? 'list' : 'default');
+const viewChanged = newView !== currentTicketView;
+
+// Update menu if PNR changed OR view changed (back to main screen, etc.)
 if(newInfo.pnr && newInfo.pnr !== lastKnownPNR){
 lastKnownPNR = newInfo.pnr;
 currentBookingInfo = newInfo;
+currentTicketView = newView;
+updateMenu();
+} else if(viewChanged){
+// View changed within same PNR (e.g., back to main screen)
+currentBookingInfo = newInfo;
+currentTicketView = newView;
 updateMenu();
 }
 
-// Also update if switching to/from e-ticket view
-if(newInfo.hasEticket !== currentBookingInfo.hasEticket){
-currentBookingInfo = newInfo;
-updateMenu();
-}
 });
 
 const responseArea=document.querySelector('.area-out');
