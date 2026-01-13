@@ -750,7 +750,7 @@ const bodyText=document.body.innerText;
 const match=bodyText.match(pattern);
 if(match&&match[1]){
 const quoteNum=match[1];
-const url='https://serko.au.fcm.travel/Web/Booking/Detail/'+quoteNum;
+const url='https://serko.corporatetraveller.com.au/Web/Booking/Detail/'+quoteNum;
 window.open(url,'_blank');
 }else{
 alert('Quote number not found!');
