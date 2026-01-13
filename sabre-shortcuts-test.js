@@ -401,7 +401,7 @@ const displayTraveler = info.traveller || cachedTraveler || 'Not Found';
 
 // Current Booking Info
 if(displayPNR !== 'TBA' || displayTraveler !== 'Not Found'){
-html += '<div+= '<div class="booking-info">';
+html += '<div class="booking-info">';
 html += '<div class="booking-info-header"><span class="booking-info-title">📋 Current Booking</span></div>';
 
 if(displayPNR && displayPNR !== 'TBA'){
