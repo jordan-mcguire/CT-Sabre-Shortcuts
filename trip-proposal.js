@@ -62,8 +62,13 @@
                 });
             }
 
-            // Important notice banner
-            var importantNotice = '<table width="100%" style="margin:20px 0"><tr><td><div style="background:#FFF5F8;border:1px solid #FFCDD9;border-left:4px solid #ff2e5f;padding:14px 18px;border-radius:6px"><strong style="color:#ff2e5f;font-size:13px;display:block;margin-bottom:12px">IMPORTANT NOTICE</strong><ul style="font-style:italic;font-size:11px;margin:0;padding-left:20px;color:#333"><li style="margin-bottom:8px">All prices quoted are subject to change until tickets are issued, even if tentatively holding.</li><li style="margin-bottom:8px">Airlines reserve the right to change surcharges, fare levels and taxes without notice.</li><li>Corporate Traveller fees are not included in your quote, as per schedule of fees, and will be charged at the time of invoicing.</li></ul></div></td></tr></table>';
+            // Clean HTML for Outlook compatibility
+            html = html.replace(/\srole="presentation"/g, '');
+            html = html.replace(/box-sizing:\s*[^;]+;?/g, '');
+            html = html.replace(/\s*!important/g, '');
+
+            // Important notice banner (more compact with light grey background)
+            var importantNotice = '<table width="100%" style="margin:20px 0"><tr><td><div style="background:#f5f5f5;border:1px solid #d0d0d0;border-left:3px solid #ff2e5f;padding:10px 14px;border-radius:4px"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">IMPORTANT NOTICE</strong><ul style="font-style:italic;font-size:10px;margin:0;padding-left:18px;color:#333;line-height:1.4"><li style="margin-bottom:4px">All prices quoted are subject to change until tickets are issued, even if tentatively holding.</li><li style="margin-bottom:4px">Airlines reserve the right to change surcharges, fare levels and taxes without notice.</li><li>Corporate Traveller fees are not included in your quote, as per schedule of fees, and will be charged at the time of invoicing.</li></ul></div></td></tr></table>';
             html = html.replace(/(<table id="[^"]*1-air-option"[^>]*>)/i, '$1<tr><td>' + importantNotice + '</td></tr>');
 
             // Car rental warning
@@ -85,14 +90,14 @@
                         var footerTable = '<table width="100%" class="' + proposalType + '-section-table ' + proposalType + '-content-border" style="margin-top:30px"><tr><td><div style="background:#f8f8f8;border:1px solid #e0e0e0;padding:16px;border-radius:4px">' + carTermsDiv + footer + '</div></td></tr></table>';
                         html = html.replace(/(<\/td>\s*<\/tr>\s*<\/table>\s*<\/body>)/i, footerTable + '$1');
                         iframe.setAttribute('srcdoc', html);
-                        alert('Changes applied! You can now click Copy.');
+                        alert('Changes applied! HTML cleaned for Outlook. You can now click Copy.');
                     })
                     .catch(e => {
                         alert('Error loading T&Cs: ' + e.message);
                     });
             } else {
                 iframe.setAttribute('srcdoc', html);
-                alert('Changes applied! You can now click Copy.');
+                alert('Changes applied! HTML cleaned for Outlook. You can now click Copy.');
             }
 
             return true;
@@ -115,4 +120,5 @@
             }
         }, 500);
     }
+
 })();
