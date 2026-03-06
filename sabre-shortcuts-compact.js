@@ -1,12 +1,12 @@
 (function(){
 if(document.getElementById('ctToolbar')){
 document.getElementById('ctToolbar').remove();
-return;
 }
-// Also remove any open popups
-['ctCopyPopup','ctActionsPopup','ctTicketPanel','ctSabreToast'].forEach(function(id){
+['ctNotesBanner','ctCopyPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
+var existingIcon=document.getElementById('ctToolbarIcon');
+if(existingIcon)existingIcon.remove();
 
 // ── Refund page ───────────────────────────────────────────────────────────────
 if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
@@ -46,7 +46,7 @@ setTimeout(function(){document.getElementById('sabrePasteButton').remove();},200
 return;
 }
 
-// ── Trip Proposal TIDY button injection ──────────────────────────────────────
+// ── Trip Proposal TIDY injection ──────────────────────────────────────────────
 function injectTidyButton(){
 var modal=document.querySelector('.trip-proposal-share-modal');
 if(!modal)return;
@@ -59,8 +59,7 @@ tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
 tidyButton.id='ctTidyButton';
 tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
 if(!document.getElementById('ctTidyStyle')){
-var tidyStyle=document.createElement('style');
-tidyStyle.id='ctTidyStyle';
+var tidyStyle=document.createElement('style');tidyStyle.id='ctTidyStyle';
 tidyStyle.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
 document.head.appendChild(tidyStyle);
 }
@@ -76,6 +75,7 @@ if(document.body)proposalObserver.observe(document.body,{childList:true,subtree:
 setTimeout(injectTidyButton,500);
 
 // ── State ─────────────────────────────────────────────────────────────────────
+var isCollapsed=false;
 var currentTicketView='default';
 var ticketsInView=[];
 var cameFromTicketList=false;
@@ -84,7 +84,21 @@ var cachedTraveler='';
 var cachedTicketContext=null;
 var lastKnownPNR='';
 var pendingCommandPoll=null;
-var openPopup=null; // tracks which popup is currently open
+var openPopup=null;
+var notesExpanded=false;
+
+// ── Keyboard shortcuts map ────────────────────────────────────────────────────
+// Each entry: [key, modifier, label, action]
+var SHORTCUTS=[
+['P','Alt','Copy PNR','copyPNR'],
+['L','Alt','Copy Lumina ID','copyLuminaId'],
+['B','Alt','Copy Booking Info','copyBookingInfo'],
+['N','Alt','Copy Name','copyName'],
+['M','Alt','Copy Mobile','copyMobile'],
+['E','Alt','Copy Email','copyEmail'],
+['T','Alt','Copy All Contact','copyAllContact'],
+['K','Alt','Toggle Notes','toggleNotes'],
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function todayDDMON(){
@@ -97,21 +111,14 @@ return dd+months[d.getMonth()];
 function flashCopied(el){
 if(!el)return;
 var orig=el.textContent;
-el.textContent='✓';
-el.style.background='#28a745';el.style.color='white';el.style.borderColor='#28a745';
-setTimeout(function(){
-el.textContent=orig;
-el.style.background='';el.style.color='';el.style.borderColor='';
-},900);
+el.textContent='✓';el.style.background='#28a745';el.style.color='white';el.style.borderColor='#28a745';
+setTimeout(function(){el.textContent=orig;el.style.background='';el.style.color='';el.style.borderColor='';},900);
 }
 
 function showToast(msg){
-var existing=document.getElementById('ctSabreToast');
-if(existing)existing.remove();
-var t=document.createElement('div');
-t.id='ctSabreToast';
-t.textContent=msg;
-t.style.cssText='position:fixed;bottom:72px;right:24px;background:#28a745;color:white;'
+var existing=document.getElementById('ctSabreToast');if(existing)existing.remove();
+var t=document.createElement('div');t.id='ctSabreToast';t.textContent=msg;
+t.style.cssText='position:fixed;bottom:90px;right:24px;background:#28a745;color:white;'
 +'font-family:Aptos,Arial,sans-serif;font-size:12px;font-weight:600;'
 +'padding:8px 16px;border-radius:6px;box-shadow:0 3px 12px rgba(0,0,0,0.25);'
 +'z-index:1000002;opacity:1;transition:opacity 0.4s ease;pointer-events:none;';
@@ -120,11 +127,28 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
-['ctCopyPopup','ctActionsPopup','ctTicketPanel'].forEach(function(id){
+['ctCopyPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
 var el=document.getElementById(id);
-if(el){el.style.opacity='0';setTimeout(function(){el.remove();},150);}
+if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
 });
 openPopup=null;
+}
+
+// ── Approval helpers ──────────────────────────────────────────────────────────
+function approvalBorderColor(approved){
+if(approved==='rejected')return '#ff3333';
+if(approved==='cancellation')return '#ff9800';
+if(approved===true)return '#28a745';
+if(approved===false&&currentBookingInfo&&currentBookingInfo.booker)return '#ffc107';
+return 'rgba(255,255,255,0.25)';
+}
+
+function approvalChipHTML(approved){
+if(approved==='rejected')return '<span class="ct-chip ct-chip-rejected">🚫 REJECTED</span>';
+if(approved==='cancellation')return '<span class="ct-chip ct-chip-cancellation">⚠️ PENDING CXLD</span>';
+if(approved===true)return '<span class="ct-chip ct-chip-approved">✓ APPROVED</span>';
+if(approved===false&&currentBookingInfo&&currentBookingInfo.booker)return '<span class="ct-chip ct-chip-pending">⏳ PENDING</span>';
+return '';
 }
 
 // ── Smart post-command polling ────────────────────────────────────────────────
@@ -140,9 +164,13 @@ clearInterval(pendingCommandPoll);pendingCommandPoll=null;
 if(info.pnr&&info.pnr.length===6)cachedPNR=info.pnr;
 if(info.traveller&&info.traveller.trim()!=='')cachedTraveler=info.traveller;
 currentBookingInfo=info;currentTicketView=detectedView;
-updateToolbar();
-// If we landed on eticket or list, open the ticket panel automatically
-if(detectedView==='eticket'||detectedView==='list')openTicketPanel();
+updateAll();
+if(detectedView==='eticket'||detectedView==='list'){
+setTimeout(function(){
+var btn=document.getElementById('ctBtnTicket');
+if(btn)showPopup('ctTicketPanel',buildTicketPanel(currentBookingInfo),btn);
+},80);
+}
 if(typeof callback==='function')callback();
 }
 },200);
@@ -236,7 +264,6 @@ if(t.length===6&&/^[A-Z]{6}$/i.test(t)){info.pnr=t;break;}
 var rawPax=extractFirstPaxRaw(bodyText);
 info.traveller=rawPax;
 if(rawPax){var np=rawPax.split('/');if(np.length>=2){info.surname=np[0].trim();info.firstname=np[1].trim();}}
-
 var cm=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);if(cm)info.company=cm[1].trim();
 var lm=bodyText.match(/L¥LUMINA ID-(\d+)/);if(lm)info.luminaId=lm[1].trim();
 var bm=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);if(bm)info.booker=bm[1].trim();
@@ -267,96 +294,129 @@ lastKnownPNR=currentBookingInfo.pnr;
 if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6)cachedPNR=currentBookingInfo.pnr;
 if(currentBookingInfo.traveller)cachedTraveler=currentBookingInfo.traveller;
 
-// ── Truncate helper ───────────────────────────────────────────────────────────
+// ── Truncate ──────────────────────────────────────────────────────────────────
 function trunc(str,max){
 if(!str)return '';var s=String(str);
 return s.length>max?'<span title="'+s.replace(/"/g,'&quot;')+'">'+s.substring(0,max)+'…</span>':s;
 }
 
-// ── Approval colour for toolbar left-border ───────────────────────────────────
-function approvalBorderColor(approved){
-if(approved==='rejected')return '#ff0000';
-if(approved==='cancellation')return '#ff9800';
-if(approved===true)return '#28a745';
-if(approved===false&&currentBookingInfo.booker)return '#ffc107';
-return 'rgba(255,255,255,0.3)';
+// ── Notes banner ──────────────────────────────────────────────────────────────
+// Always floats directly above the toolbar when notes exist.
+// Click to expand/collapse the note text.
+function buildNotesBanner(notes){
+if(!notes||notes.length===0)return null;
+var banner=document.createElement('div');
+banner.id='ctNotesBanner';
+renderNotesBanner(banner,notes);
+return banner;
 }
 
-function approvalLabel(approved){
-if(approved==='rejected')return '<span class="ct-status-badge ct-rejected">🚫 REJECTED</span>';
-if(approved==='cancellation')return '<span class="ct-status-badge ct-cancellation">⚠️ CXLD</span>';
-if(approved===true)return '<span class="ct-status-badge ct-approved">✓</span>';
-if(approved===false&&currentBookingInfo.booker)return '<span class="ct-status-badge ct-pending">⏳</span>';
-return '';
+function renderNotesBanner(banner,notes){
+var expanded=notesExpanded;
+// Banner is 300px wide to fit ~42 chars per note line comfortably
+banner.innerHTML=
+'<div class="ct-banner-header">'
++'<span class="ct-banner-icon">⚠️</span>'
++'<span class="ct-banner-title">'+notes.length+' Note'+(notes.length>1?'s':'')+' to Agent</span>'
++'<span class="ct-banner-toggle">'+(expanded?'▾':'▸')+'</span>'
++'</div>'
++(expanded
+? '<div class="ct-banner-notes">'
++notes.map(function(n){return '<div class="ct-banner-note-line">'+n+'</div>';}).join('')
++'</div>'
+: '');
+banner.onclick=function(e){
+e.stopPropagation();
+notesExpanded=!notesExpanded;
+renderNotesBanner(banner,notes);
+repositionBanner();
+};
 }
 
-// ── Build toolbar pill ────────────────────────────────────────────────────────
-function buildToolbar(info){
+function repositionBanner(){
+var tb=document.getElementById('ctToolbar');
+var banner=document.getElementById('ctNotesBanner');
+if(!tb||!banner)return;
+var tbRect=tb.getBoundingClientRect();
+var bannerHeight=banner.offsetHeight;
+banner.style.bottom=(window.innerHeight-tbRect.top+6)+'px';
+banner.style.right=(window.innerWidth-tbRect.right)+'px';
+}
+
+function syncNotesBanner(info){
+var existing=document.getElementById('ctNotesBanner');
+if(info.notes&&info.notes.length>0){
+if(!existing){
+var banner=buildNotesBanner(info.notes);
+if(banner){document.body.appendChild(banner);repositionBanner();}
+}else{
+// Update note content but keep expanded state
+renderNotesBanner(existing,info.notes);
+repositionBanner();
+}
+}else{
+if(existing)existing.remove();
+notesExpanded=false;
+}
+}
+
+// ── Build toolbar ─────────────────────────────────────────────────────────────
+function buildToolbarHTML(info){
 var traveller=info.traveller||cachedTraveler||'';
 var approved=info.approved;
 var borderColor=approvalBorderColor(approved);
-var statusBadge=approvalLabel(approved);
-var notesBadge=info.notes.length>0?'<span class="ct-notes-badge">'+info.notes.length+'</span>':'';
+var chip=approvalChipHTML(approved);
 var hasTickets=currentTicketView==='list'||currentTicketView==='eticket';
+var notesBadge=info.notes&&info.notes.length>0
+?'<span class="ct-notes-dot">'+info.notes.length+'</span>':'' ;
 
-// Toolbar pill: [✈ NAME  STATUS] [📋] [⚡ badge]
 var html='<div id="ctToolbarInner" style="border-left:3px solid '+borderColor+';">';
-// Name area
-html+='<div class="ct-name-area">';
+// Left: name + approval chip
+html+='<div class="ct-name-area" title="Drag to move">';
 html+='<span class="ct-plane">✈</span>';
+html+='<div class="ct-name-block">';
 if(traveller){
-html+='<span class="ct-traveller">'+trunc(traveller,22)+'</span>';
+html+='<span class="ct-traveller">'+trunc(traveller,24)+'</span>';
 }else{
-html+='<span class="ct-traveller ct-dim">No booking loaded</span>';
+html+='<span class="ct-traveller ct-dim">No booking</span>';
 }
-if(statusBadge)html+=statusBadge;
+if(chip)html+='<div class="ct-chip-row">'+chip+'</div>';
 html+='</div>';
-// Icon buttons
+html+='</div>';
+// Right: icon buttons
 html+='<div class="ct-icon-btns">';
-html+='<button class="ct-icon-btn" id="ctBtnCopy" title="Copy options">📋</button>';
+html+='<button class="ct-icon-btn" id="ctBtnCopy" title="Copy (Alt+…)">📋</button>';
 if(hasTickets){
-html+='<button class="ct-icon-btn ct-ticket-btn" id="ctBtnTicket" title="Ticket actions">🎫</button>';
+html+='<button class="ct-icon-btn" id="ctBtnTicket" title="Ticket actions">🎫</button>';
 }
-html+='<button class="ct-icon-btn" id="ctBtnActions" title="Actions'+( info.notes.length>0?' — '+info.notes.length+' note'+(info.notes.length>1?'s':''):'')+'">';
-html+='⚡'+notesBadge;
-html+='</button>';
-html+='<button class="ct-icon-btn ct-close-btn" id="ctBtnClose" title="Close">×</button>';
+html+='<button class="ct-icon-btn ct-actions-btn" id="ctBtnActions" title="Actions">⚡'+notesBadge+'</button>';
+html+='<button class="ct-icon-btn ct-shortcuts-btn" id="ctBtnShortcuts" title="Keyboard shortcuts">?</button>';
+html+='<button class="ct-icon-btn ct-collapse-btn" id="ctBtnCollapse" title="Collapse">−</button>';
 html+='</div>';
 html+='</div>';
 return html;
 }
 
-// ── Build copy popup ──────────────────────────────────────────────────────────
-function buildCopyPopup(info){
+// ── Build popups ──────────────────────────────────────────────────────────────
+function buildCopyPopupHTML(info){
 var hasContact=info.email||info.phone;
 var html='<div class="ct-popup-section-label">COPY</div>';
-html+='<button class="ct-popup-btn" data-action="copyPNR">📋 PNR</button>';
-html+='<button class="ct-popup-btn" data-action="copyLuminaId">📋 CT Booking No.</button>';
-html+='<button class="ct-popup-btn" data-action="copyBookingInfo">📋 Full Booking Info</button>';
+html+='<button class="ct-popup-btn" data-action="copyPNR">📋 PNR <kbd>Alt+P</kbd></button>';
+html+='<button class="ct-popup-btn" data-action="copyLuminaId">📋 Lumina ID <kbd>Alt+L</kbd></button>';
+html+='<button class="ct-popup-btn" data-action="copyBookingInfo">📋 Full Booking Info <kbd>Alt+B</kbd></button>';
 if(hasContact){
 html+='<div class="ct-popup-divider"></div>';
 html+='<div class="ct-popup-section-label">CONTACT</div>';
-html+='<button class="ct-popup-btn" data-action="copyName">👤 Name</button>';
-html+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile</button>';
-html+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email</button>';
-html+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact</button>';
+html+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kbd></button>';
+html+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
+html+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+E</kbd></button>';
+html+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+T</kbd></button>';
 }
 return html;
 }
 
-// ── Build actions popup ───────────────────────────────────────────────────────
-function buildActionsPopup(info){
+function buildActionsPopupHTML(info){
 var html='';
-
-// Notes — shown at top if present
-if(info.notes.length>0){
-html+='<div class="ct-popup-section-label">⚠️ NOTES TO AGENT</div>';
-html+='<div class="ct-notes-block">';
-info.notes.forEach(function(n){html+='<div class="ct-note-line">'+n+'</div>';});
-html+='</div>';
-html+='<div class="ct-popup-divider"></div>';
-}
-
 html+='<div class="ct-popup-section-label">NAVIGATE</div>';
 html+='<button class="ct-popup-btn" data-action="viewSerko">🔗 View in Serko</button>';
 html+='<button class="ct-popup-btn" data-action="masquerade">👤 View in YourCT</button>';
@@ -364,33 +424,30 @@ html+='<div class="ct-popup-divider"></div>';
 html+='<div class="ct-popup-section-label">COMMANDS</div>';
 html+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+')</button>';
 html+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko</button>';
-
 if(info.method){
 html+='<div class="ct-popup-divider"></div>';
 html+='<div class="ct-popup-section-label">BOOKING METHOD</div>';
-html+='<div class="ct-method-row">';
-html+='<select class="ct-method-select" data-line="'+info.methodLine+'">';
-html+='<option value="W"'+(info.method==='W'?' selected':'')+'>Web</option>';
-html+='<option value="M"'+(info.method==='M'?' selected':'')+'>Mixed</option>';
-html+='<option value="E"'+(info.method==='E'?' selected':'')+'>Email</option>';
-html+='<option value="T"'+(info.method==='T'?' selected':'')+'>Telephone</option>';
-html+='</select></div>';
+html+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
++'<option value="W"'+(info.method==='W'?' selected':'')+'>Web</option>'
++'<option value="M"'+(info.method==='M'?' selected':'')+'>Mixed</option>'
++'<option value="E"'+(info.method==='E'?' selected':'')+'>Email</option>'
++'<option value="T"'+(info.method==='T'?' selected':'')+'>Telephone</option>'
++'</select>';
 }
 return html;
 }
 
-// ── Build ticket panel ────────────────────────────────────────────────────────
-function buildTicketPanel(info){
+function buildTicketPanelHTML(info){
 var html='';
 if(currentTicketView==='list'&&info.tickets&&info.tickets.length>0){
 html+='<div class="ct-popup-section-label">🎫 SELECT TICKET</div>';
-info.tickets.forEach(function(ticket,index){
+info.tickets.forEach(function(ticket){
 var labels='';
 if(ticket.isNDC)labels+=' <span class="ndc-label">NDC</span>';
 if(ticket.isEMD)labels+=' <span class="emd-label">EMD</span>';
 html+='<button class="ct-popup-btn ct-ticket-item" data-ticket-no="'+ticket.ticketNo+'" data-type="'+ticket.type+'">'+ticket.ticketNo+labels+'</button>';
 });
-html+='<div class="ct-ticket-note">NDC tickets: view graphically in Ticketing tab.</div>';
+html+='<div class="ct-ticket-note">NDC tickets require graphical view in Ticketing tab.</div>';
 }else if(currentTicketView==='eticket'){
 html+='<div class="ct-popup-section-label">🎫 TICKET ACTIONS</div>';
 html+='<div class="ct-ticket-btn-row">';
@@ -408,41 +465,40 @@ html+='<button class="ct-popup-btn" data-action="backToList">← Back to Ticket 
 return html;
 }
 
+function buildShortcutsPopupHTML(){
+var html='<div class="ct-popup-section-label">⌨️ KEYBOARD SHORTCUTS</div>';
+html+='<table class="ct-shortcuts-table">';
+SHORTCUTS.forEach(function(s){
+html+='<tr><td><kbd>'+s[1]+'+'+s[0]+'</kbd></td><td>'+s[2]+'</td></tr>';
+});
+html+='</table>';
+return html;
+}
+
 // ── Popup factory ─────────────────────────────────────────────────────────────
 function showPopup(id,contentHTML,anchorBtn){
 closeAllPopups();
-if(openPopup===id){openPopup=null;return;} // toggle off
+if(openPopup===id){openPopup=null;return;}
 var popup=document.createElement('div');
-popup.id=id;
-popup.className='ct-popup';
+popup.id=id;popup.className='ct-popup';
 popup.innerHTML=contentHTML;
 document.body.appendChild(popup);
-
-// Position above the anchor button
 var rect=anchorBtn.getBoundingClientRect();
-var popupWidth=200;
-var left=rect.right-popupWidth;
-if(left<4)left=4;
 popup.style.right=(window.innerWidth-rect.right)+'px';
 popup.style.bottom=(window.innerHeight-rect.top+6)+'px';
-
-// Animate in
 requestAnimationFrame(function(){popup.style.opacity='1';popup.style.transform='translateY(0)';});
 openPopup=id;
 attachPopupHandlers(popup);
 }
 
-// ── Popup event handlers ──────────────────────────────────────────────────────
+// ── Popup handlers ────────────────────────────────────────────────────────────
 function attachPopupHandlers(popup){
-// Method dropdown in actions popup
 var methodSelect=popup.querySelector('.ct-method-select');
 if(methodSelect){
 methodSelect.addEventListener('change',function(){
 updateMethod(this.getAttribute('data-line'),this.value);
 });
 }
-
-// Ticket list items
 popup.querySelectorAll('.ct-ticket-item').forEach(function(btn){
 btn.addEventListener('click',function(e){
 e.stopPropagation();
@@ -450,48 +506,56 @@ executeViewEticket(this.getAttribute('data-ticket-no'),this.getAttribute('data-t
 closeAllPopups();
 });
 });
-
-// data-action buttons
 popup.querySelectorAll('[data-action]').forEach(function(btn){
 btn.addEventListener('click',function(e){
 e.preventDefault();e.stopPropagation();
-var action=this.getAttribute('data-action');
-var self=this;
+handleAction(this.getAttribute('data-action'),this);
+});
+});
+}
+
+// ── Centralised action handler ────────────────────────────────────────────────
+function handleAction(action,el){
 switch(action){
 case 'copyPNR':
-if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6){
-navigator.clipboard.writeText(currentBookingInfo.pnr);flashCopied(self);}
+if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6){navigator.clipboard.writeText(currentBookingInfo.pnr);if(el)flashCopied(el);else showToast('✓ PNR copied');}
 break;
 case 'copyLuminaId':
-if(currentBookingInfo.luminaId){navigator.clipboard.writeText(currentBookingInfo.luminaId);flashCopied(self);}
+if(currentBookingInfo.luminaId){navigator.clipboard.writeText(currentBookingInfo.luminaId);if(el)flashCopied(el);else showToast('✓ Lumina ID copied');}
 break;
 case 'copyBookingInfo':
 copyBookingInfoRich().then(function(){showToast('✓ Booking info copied');});
 break;
 case 'copyName':
 var rawName=currentBookingInfo.traveller||cachedTraveler||'';
-if(rawName){navigator.clipboard.writeText(rawName);flashCopied(self);}
+if(rawName){navigator.clipboard.writeText(rawName);if(el)flashCopied(el);else showToast('✓ Name copied');}
 break;
 case 'copyMobile':
-if(currentBookingInfo.phone){navigator.clipboard.writeText(currentBookingInfo.phone);flashCopied(self);}
+if(currentBookingInfo.phone){navigator.clipboard.writeText(currentBookingInfo.phone);if(el)flashCopied(el);else showToast('✓ Mobile copied');}
 break;
 case 'copyEmail':
-if(currentBookingInfo.email){navigator.clipboard.writeText(currentBookingInfo.email);flashCopied(self);}
+if(currentBookingInfo.email){navigator.clipboard.writeText(currentBookingInfo.email);if(el)flashCopied(el);else showToast('✓ Email copied');}
 break;
 case 'copyAllContact':
 copyContactDetailsRich().then(function(){showToast('✓ Contact copied');closeAllPopups();});
 break;
+case 'toggleNotes':
+notesExpanded=!notesExpanded;
+var banner=document.getElementById('ctNotesBanner');
+if(banner)renderNotesBanner(banner,currentBookingInfo.notes);
+repositionBanner();
+break;
 case 'copyTicketNo':
 var tkt=currentBookingInfo.ticketInfo.ticketNo||(cachedTicketContext&&cachedTicketContext.ticketNo)||'';
-if(tkt){navigator.clipboard.writeText(tkt);flashCopied(self);}
+if(tkt){navigator.clipboard.writeText(tkt);if(el)flashCopied(el);else showToast('✓ Ticket No copied');}
 break;
 case 'copyTicketName':
 var tname=currentBookingInfo.ticketInfo.paxName||(cachedTicketContext&&cachedTicketContext.traveler)||cachedTraveler||'';
-if(tname){navigator.clipboard.writeText(tname);flashCopied(self);}
+if(tname){navigator.clipboard.writeText(tname);if(el)flashCopied(el);else showToast('✓ Name copied');}
 break;
 case 'copyTicketPNR':
 var tpnr=currentBookingInfo.ticketInfo.pnr||(cachedTicketContext&&cachedTicketContext.pnr)||cachedPNR||'';
-if(tpnr){navigator.clipboard.writeText(tpnr);flashCopied(self);}
+if(tpnr){navigator.clipboard.writeText(tpnr);if(el)flashCopied(el);else showToast('✓ PNR copied');}
 break;
 case 'copyAllTicket':
 copyAllTicketInfo().then(function(){showToast('✓ Ticket details copied');});
@@ -501,7 +565,8 @@ copyRefundData();closeAllPopups();
 break;
 case 'backToList':
 cameFromTicketList=false;cachedTicketContext=null;currentTicketView='list';
-updateToolbar();openTicketPanel();
+updateAll();
+setTimeout(function(){var btn=document.getElementById('ctBtnTicket');if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);},80);
 break;
 case 'viewSerko':
 var smatch=document.body.innerText.match(/Q¥QUOTE NUMBER\s*-\s*(\d+)/);
@@ -514,87 +579,116 @@ if(mmatch&&mmatch[1])window.open('https://agentport.fcm.travel/SamlService/Agent
 else alert('Agentport or YourCT profile not found.');
 break;
 case 'updateTTL':
-executeSabreCommand('7TAW'+todayDDMON()+'/',null);
-showToast('✓ TTL command sent');closeAllPopups();
+executeSabreCommand('7TAW/'+todayDDMON(),null);showToast('✓ TTL command sent');closeAllPopups();
 break;
 case 'queueSerko':
-executeSabreCommand('QP/90/1',null);
-showToast('✓ Queue command sent');closeAllPopups();
+executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();
 break;
 }
-});
-});
 }
 
-function openTicketPanel(){
-var btn=document.getElementById('ctBtnTicket');
-if(!btn)return;
-showPopup('ctTicketPanel',buildTicketPanel(currentBookingInfo),btn);
+// ── Keyboard shortcut listener ────────────────────────────────────────────────
+document.addEventListener('keydown',function(e){
+if(!document.getElementById('ctToolbar'))return;
+// Don't fire if agent is typing in the Sabre command input
+if(document.activeElement&&document.activeElement.matches('input,textarea,select'))return;
+SHORTCUTS.forEach(function(s){
+if(e.altKey&&e.key.toUpperCase()===s[0]){
+e.preventDefault();
+handleAction(s[3],null);
 }
+});
+});
 
-// ── Toolbar update ────────────────────────────────────────────────────────────
-function updateToolbar(){
+// ── Update everything ─────────────────────────────────────────────────────────
+function updateAll(){
 var tb=document.getElementById('ctToolbar');
-if(!tb)return;
-tb.innerHTML=buildToolbar(currentBookingInfo);
-// Update approval border
-var inner=document.getElementById('ctToolbarInner');
-if(inner)inner.style.borderLeftColor=approvalBorderColor(currentBookingInfo.approved);
+if(tb){
+tb.innerHTML=buildToolbarHTML(currentBookingInfo);
 attachToolbarHandlers();
+}
+syncNotesBanner(currentBookingInfo);
+}
+
+// ── Collapse / expand ─────────────────────────────────────────────────────────
+function collapseToolbar(){
+isCollapsed=true;
+closeAllPopups();
+var banner=document.getElementById('ctNotesBanner');if(banner)banner.remove();
+var tb=document.getElementById('ctToolbar');
+if(tb){
+tb.style.opacity='0';tb.style.transform='scale(0.8)';
+setTimeout(function(){
+tb.remove();
+createCollapsedIcon();
+},180);
+}
+}
+
+function createCollapsedIcon(){
+var icon=document.createElement('div');
+icon.id='ctToolbarIcon';
+var hasNotes=currentBookingInfo&&currentBookingInfo.notes&&currentBookingInfo.notes.length>0;
+icon.innerHTML='<span>✈</span>'+(hasNotes?'<span class="ct-icon-notes-dot">'+currentBookingInfo.notes.length+'</span>':'');
+icon.title='CT Sabre Shortcuts'+(hasNotes?' — '+currentBookingInfo.notes.length+' note(s) to agent':'');
+icon.addEventListener('click',expandToolbar);
+document.body.appendChild(icon);
+}
+
+function expandToolbar(){
+isCollapsed=false;
+var icon=document.getElementById('ctToolbarIcon');if(icon)icon.remove();
+var tb=document.createElement('div');
+tb.id='ctToolbar';
+tb.innerHTML=buildToolbarHTML(currentBookingInfo);
+document.body.appendChild(tb);
+attachToolbarHandlers();
+syncNotesBanner(currentBookingInfo);
+// Reposition banner after toolbar renders
+setTimeout(repositionBanner,50);
 }
 
 // ── Toolbar button handlers ───────────────────────────────────────────────────
 function attachToolbarHandlers(){
-var btnCopy=document.getElementById('ctBtnCopy');
-var btnActions=document.getElementById('ctBtnActions');
-var btnTicket=document.getElementById('ctBtnTicket');
-var btnClose=document.getElementById('ctBtnClose');
-
-if(btnCopy){
-btnCopy.addEventListener('click',function(e){
-e.stopPropagation();
-showPopup('ctCopyPopup',buildCopyPopup(currentBookingInfo),btnCopy);
-});
-}
-if(btnActions){
-btnActions.addEventListener('click',function(e){
-e.stopPropagation();
-showPopup('ctActionsPopup',buildActionsPopup(currentBookingInfo),btnActions);
-});
-}
-if(btnTicket){
-btnTicket.addEventListener('click',function(e){
-e.stopPropagation();
-showPopup('ctTicketPanel',buildTicketPanel(currentBookingInfo),btnTicket);
-});
-}
-if(btnClose){
-btnClose.addEventListener('click',function(e){
-e.stopPropagation();
-closeAllPopups();
-var tb=document.getElementById('ctToolbar');if(tb)tb.remove();
-});
-}
-
-// Drag on the name area
 var tb=document.getElementById('ctToolbar');
+if(!tb)return;
+
+document.getElementById('ctBtnCopy')&&document.getElementById('ctBtnCopy').addEventListener('click',function(e){
+e.stopPropagation();showPopup('ctCopyPopup',buildCopyPopupHTML(currentBookingInfo),this);
+});
+document.getElementById('ctBtnActions')&&document.getElementById('ctBtnActions').addEventListener('click',function(e){
+e.stopPropagation();showPopup('ctActionsPopup',buildActionsPopupHTML(currentBookingInfo),this);
+});
+document.getElementById('ctBtnTicket')&&document.getElementById('ctBtnTicket').addEventListener('click',function(e){
+e.stopPropagation();showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),this);
+});
+document.getElementById('ctBtnShortcuts')&&document.getElementById('ctBtnShortcuts').addEventListener('click',function(e){
+e.stopPropagation();showPopup('ctShortcutsPopup',buildShortcutsPopupHTML(),this);
+});
+document.getElementById('ctBtnCollapse')&&document.getElementById('ctBtnCollapse').addEventListener('click',function(e){
+e.stopPropagation();collapseToolbar();
+});
+
+// Drag on name area
 var isDragging=false,startX,startY,origRight,origBottom;
-var nameArea=tb?tb.querySelector('.ct-name-area'):null;
+var nameArea=tb.querySelector('.ct-name-area');
 if(nameArea){
 nameArea.addEventListener('mousedown',function(e){
-isDragging=true;
-startX=e.clientX;startY=e.clientY;
-var style=window.getComputedStyle(tb);
-origRight=parseInt(style.right)||20;
-origBottom=parseInt(style.bottom)||20;
+isDragging=true;startX=e.clientX;startY=e.clientY;
+var cs=window.getComputedStyle(tb);
+origRight=parseInt(cs.right)||20;origBottom=parseInt(cs.bottom)||20;
 e.preventDefault();
 });
 }
 document.addEventListener('mousemove',function(e){
 if(!isDragging)return;
 var dx=e.clientX-startX;var dy=e.clientY-startY;
-var tb=document.getElementById('ctToolbar');
-if(tb){tb.style.right=(origRight-dx)+'px';tb.style.bottom=(origBottom-dy)+'px';}
+var tbEl=document.getElementById('ctToolbar');
+if(tbEl){
+var nr=origRight-dx;var nb=origBottom-dy;
+tbEl.style.right=nr+'px';tbEl.style.bottom=nb+'px';
+repositionBanner();
+}
 });
 document.addEventListener('mouseup',function(){isDragging=false;});
 }
@@ -608,10 +702,13 @@ if(newInfo.traveller&&newInfo.traveller.trim()!=='')cachedTraveler=newInfo.trave
 var newView=newInfo.hasEticket?'eticket':(newInfo.tickets.length>0?'list':'default');
 if(newInfo.pnr&&newInfo.pnr!==lastKnownPNR){
 lastKnownPNR=newInfo.pnr;currentBookingInfo=newInfo;currentTicketView=newView;
-cameFromTicketList=false;cachedTicketContext=null;
-closeAllPopups();updateToolbar();
+cameFromTicketList=false;cachedTicketContext=null;notesExpanded=false;
+closeAllPopups();updateAll();
 }else if(newView!==currentTicketView){
-currentBookingInfo=newInfo;currentTicketView=newView;updateToolbar();
+currentBookingInfo=newInfo;currentTicketView=newView;updateAll();
+}else{
+// Still update notes banner even if view/pnr unchanged (notes may have changed)
+syncNotesBanner(newInfo);
 }
 });
 var responseArea=document.querySelector('.area-out');
@@ -622,7 +719,7 @@ document.addEventListener('click',function(e){
 if(!openPopup)return;
 var popup=document.getElementById(openPopup);
 var tb=document.getElementById('ctToolbar');
-if(popup&&!popup.contains(e.target)&&tb&&!tb.contains(e.target)){
+if(popup&&!popup.contains(e.target)&&(!tb||!tb.contains(e.target))){
 closeAllPopups();
 }
 },{capture:true});
@@ -684,8 +781,7 @@ displayTicket=currentBookingInfo.ticketInfo.ticketNo;displayName=currentBookingI
 displayTicket=cachedTicketContext.ticketNo;displayName=cachedTicketContext.traveler;displayPNR=cachedTicketContext.pnr;
 }else{displayTicket='Not Found';displayName=cachedTraveler||'Not Found';displayPNR=cachedPNR||'TBA';}
 var rows=[['Ticket No',displayTicket,true],['Passenger',displayName,false],['PNR',displayPNR,true]];
-var plain=rows.map(function(r){return r[0]+': '+r[1];}).join('\n');
-await writeRichClipboard(buildEmailTable('TICKET DETAILS',rows),plain);
+await writeRichClipboard(buildEmailTable('TICKET DETAILS',rows),rows.map(function(r){return r[0]+': '+r[1];}).join('\n'));
 }
 
 async function copyRefundData(){
@@ -709,8 +805,7 @@ if(ticketType==='ndc'||ticketType==='ndc-emd'){
 alert('NDC ticket — view graphically in Ticketing tab. Context cached for refund.');return;
 }
 var cleanTicketNo=ticketNo.replace(/[\/-].*$/,'');
-var command=(ticketType==='emd'?'WEMD*T':'WETR*T')+cleanTicketNo;
-executeSabreCommand(command,'eticket');
+executeSabreCommand((ticketType==='emd'?'WEMD*T':'WETR*T')+cleanTicketNo,'eticket');
 }
 
 function executeViewTicketsCommand(){
@@ -731,78 +826,131 @@ setTimeout(function(){sendButton.click();setTimeout(function(){showToast('✅ Me
 // ── Styles ────────────────────────────────────────────────────────────────────
 var style=document.createElement('style');
 style.textContent=
-// Toolbar pill
+// Toolbar
 '#ctToolbar{'
 +'position:fixed;bottom:20px;right:20px;z-index:999999;'
 +'font-family:Aptos,Arial,sans-serif;'
++'transition:opacity 0.18s,transform 0.18s;'
 +'animation:ctPopIn 0.2s ease-out;}'
-+'@keyframes ctPopIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}'
++'@keyframes ctPopIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}'
+
 +'#ctToolbarInner{'
-+'display:flex;align-items:center;gap:0;'
-+'background:linear-gradient(135deg,#ff2e5f 0%,#d41a4a 100%);'
-+'border-radius:24px;'
-+'box-shadow:0 4px 16px rgba(0,0,0,0.35);'
-+'border-left:3px solid #28a745;'  // overwritten dynamically
++'display:flex;align-items:stretch;'
++'background:linear-gradient(135deg,#c4103a 0%,#ff2e5f 60%,#d41a4a 100%);'
++'border-radius:28px;'
++'box-shadow:0 6px 22px rgba(0,0,0,0.4);'
++'border-left:4px solid #28a745;'
 +'overflow:hidden;'
-+'height:34px;}'
++'min-height:44px;}'  // roomier than before
 
-// Name area — draggable
+// Name / drag area
 +'.ct-name-area{'
-+'display:flex;align-items:center;gap:6px;'
-+'padding:0 12px 0 10px;height:100%;cursor:move;'
-+'border-right:1px solid rgba(255,255,255,0.2);'
-+'min-width:0;max-width:200px;}'
-+'.ct-plane{font-size:13px;flex-shrink:0;}'
-+'.ct-traveller{font-size:10.5px;font-weight:700;color:white;letter-spacing:0.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-+'.ct-dim{opacity:0.6;font-weight:400;}'
++'display:flex;align-items:center;gap:8px;'
++'padding:8px 14px 8px 12px;'
++'cursor:move;user-select:none;'
++'border-right:1px solid rgba(255,255,255,0.18);'
++'min-width:0;max-width:220px;}'
++'.ct-plane{font-size:15px;flex-shrink:0;line-height:1;}'
++'.ct-name-block{display:flex;flex-direction:column;gap:3px;min-width:0;}'
++'.ct-traveller{font-size:11.5px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}'
++'.ct-dim{opacity:0.55;font-weight:400;}'
++'.ct-chip-row{display:flex;}'
 
-// Status badges
-+'.ct-status-badge{font-size:8px;font-weight:800;padding:2px 5px;border-radius:3px;white-space:nowrap;flex-shrink:0;}'
-+'.ct-approved{background:#d4edda;color:#155724;}'
-+'.ct-pending{background:#fff3cd;color:#856404;}'
-+'.ct-cancellation{background:#fff3cd;color:#c62828;}'
-+'.ct-rejected{background:#ff0000;color:white;}'
+// Approval chips
++'.ct-chip{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}'
++'.ct-chip-approved{background:#d4edda;color:#155724;}'
++'.ct-chip-pending{background:#fff3cd;color:#856404;}'
++'.ct-chip-cancellation{background:#ffebee;color:#c62828;}'
++'.ct-chip-rejected{background:#ff0000;color:white;}'
 
-// Notes badge on ⚡ button
-+'.ct-notes-badge{'
-+'position:absolute;top:-4px;right:-4px;'
+// Icon buttons
++'.ct-icon-btns{display:flex;align-items:center;}'
++'.ct-icon-btn{'
++'background:none;border:none;color:white;'
++'font-size:16px;cursor:pointer;'
++'min-width:38px;height:100%;'
++'display:flex;align-items:center;justify-content:center;'
++'position:relative;padding:0 6px;'
++'transition:background 0.15s;font-family:inherit;}'
++'.ct-icon-btn:hover{background:rgba(255,255,255,0.15);}'
++'.ct-shortcuts-btn{font-size:13px;font-weight:800;opacity:0.85;}'
++'.ct-shortcuts-btn:hover{opacity:1;}'
++'.ct-collapse-btn{font-size:20px;opacity:0.7;border-left:1px solid rgba(255,255,255,0.18);min-width:34px;}'
++'.ct-collapse-btn:hover{opacity:1;background:rgba(0,0,0,0.2);}'
+
+// Orange notes dot on ⚡ button
++'.ct-notes-dot{'
++'position:absolute;top:6px;right:4px;'
 +'background:#ff9800;color:white;'
 +'font-size:8px;font-weight:800;'
 +'min-width:14px;height:14px;border-radius:7px;'
 +'display:flex;align-items:center;justify-content:center;'
-+'padding:0 3px;border:1.5px solid #ff2e5f;}'
++'padding:0 3px;border:1.5px solid #ff2e5f;line-height:1;}'
 
-// Icon buttons row
-+'.ct-icon-btns{display:flex;align-items:center;height:100%;}'
-+'.ct-icon-btn{'
-+'background:none;border:none;color:white;'
-+'font-size:15px;cursor:pointer;'
-+'height:34px;width:34px;'
+// Collapsed icon bubble
++'#ctToolbarIcon{'
++'position:fixed;bottom:20px;right:20px;'
++'width:52px;height:52px;'
++'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);'
++'border-radius:50%;'
++'box-shadow:0 4px 18px rgba(0,0,0,0.35);'
++'z-index:999999;display:flex;align-items:center;justify-content:center;'
++'cursor:pointer;position:fixed;'
++'animation:ctPopIn 0.2s ease-out;}'
++'#ctToolbarIcon:hover{transform:scale(1.08);}'
++'#ctToolbarIcon span:first-child{font-size:24px;}'
++'.ct-icon-notes-dot{'
++'position:absolute;top:2px;right:2px;'
++'background:#ff9800;color:white;font-size:8px;font-weight:800;'
++'min-width:15px;height:15px;border-radius:8px;'
 +'display:flex;align-items:center;justify-content:center;'
-+'position:relative;'
-+'transition:background 0.15s;}'
-+'.ct-icon-btn:hover{background:rgba(255,255,255,0.15);}'
-+'.ct-ticket-btn{font-size:14px;}'
-+'.ct-close-btn{font-size:18px;opacity:0.7;border-left:1px solid rgba(255,255,255,0.2);}'
-+'.ct-close-btn:hover{opacity:1;background:rgba(0,0,0,0.2);}'
++'padding:0 3px;border:2px solid white;line-height:1;}'
 
-// Popup shared styles — floats ABOVE toolbar
+// Notes banner — floats above toolbar, 300px wide
++'#ctNotesBanner{'
++'position:fixed;z-index:999998;'
++'width:300px;'
++'background:#fffbf0;'
++'border:1px solid #ffcc80;'
++'border-left:4px solid #ff9800;'
++'border-radius:10px;'
++'box-shadow:0 4px 16px rgba(0,0,0,0.18);'
++'font-family:Aptos,Arial,sans-serif;'
++'cursor:pointer;'
++'overflow:hidden;'
++'animation:ctPopIn 0.2s ease-out;}'
++'.ct-banner-header{'
++'display:flex;align-items:center;gap:8px;'
++'padding:9px 12px;'
++'background:#fff3e0;}'
++'.ct-banner-icon{font-size:14px;flex-shrink:0;}'
++'.ct-banner-title{font-size:11px;font-weight:700;color:#e65100;flex:1;}'
++'.ct-banner-toggle{font-size:12px;color:#e65100;flex-shrink:0;}'
++'.ct-banner-notes{'
++'padding:8px 12px 10px;'
++'border-top:1px solid #ffcc80;}'
++'.ct-banner-note-line{'
++'font-size:10.5px;line-height:1.6;color:#333;'
++'padding:3px 0;'
++'word-break:break-word;white-space:pre-wrap;'
++'border-bottom:1px dotted rgba(255,152,0,0.3);}'
++'.ct-banner-note-line:last-child{border-bottom:none;}'
+
+// Popup
 +'.ct-popup{'
 +'position:fixed;z-index:1000001;'
-+'width:210px;'
++'width:220px;'
 +'background:white;'
 +'border-radius:10px;'
 +'box-shadow:0 8px 28px rgba(0,0,0,0.22);'
-+'border:1px solid #f0f0f0;'
++'border:1px solid #f0e0e5;'
 +'padding:8px;'
 +'opacity:0;transform:translateY(6px);'
 +'transition:opacity 0.15s ease,transform 0.15s ease;}'
-
 +'.ct-popup-section-label{'
 +'font-size:8px;font-weight:800;color:#ff2e5f;'
 +'text-transform:uppercase;letter-spacing:0.6px;'
-+'padding:4px 6px 4px;margin-top:2px;}'
-
++'padding:4px 6px;margin-top:2px;}'
 +'.ct-popup-btn{'
 +'display:block;width:100%;text-align:left;'
 +'padding:7px 10px;margin:2px 0;'
@@ -812,36 +960,26 @@ style.textContent=
 +'font-family:Aptos,Arial,sans-serif;'
 +'transition:background 0.12s,color 0.12s;}'
 +'.ct-popup-btn:hover{background:#ffe0ea;color:#ff2e5f;border-color:#ffb3c6;}'
-
 +'.ct-highlight-btn{background:#fff3cd;border-color:#ffd700;font-weight:600;}'
-+'.ct-highlight-btn:hover{background:#ffe066;}'
-
++'.ct-highlight-btn:hover{background:#ffe066;color:#333;}'
 +'.ct-popup-divider{height:1px;background:#f0e0e5;margin:6px 0;}'
-
-// Notes block inside actions popup
-+'.ct-notes-block{'
-+'background:#fffbf0;border-left:3px solid #ff9800;'
-+'border-radius:5px;padding:8px 10px;margin:4px 0 6px;'
-+'max-height:140px;overflow-y:auto;}'
-+'.ct-note-line{font-size:10px;line-height:1.55;color:#333;padding:2px 0;'
-+'word-break:break-word;white-space:pre-wrap;border-bottom:1px dotted rgba(255,152,0,0.2);}'
-+'.ct-note-line:last-child{border-bottom:none;}'
-
-// Ticket items inside popup
-+'.ct-ticket-note{font-size:8px;color:#888;font-style:italic;text-align:center;padding:4px;}'
++'.ct-ticket-note{font-size:8px;color:#999;font-style:italic;text-align:center;padding:4px 0;}'
 +'.ct-ticket-btn-row{display:flex;gap:4px;margin:4px 0;}'
-+'.ct-ticket-btn-row .ct-popup-btn{flex:1;text-align:center;padding:7px 4px;}'
-
-// Ticket/NDC/EMD labels
-+'.ndc-label{background:#ff2e5f;color:white;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:6px;}'
-+'.emd-label{background:#ffc107;color:#333;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:6px;}'
-
-// Method dropdown inside popup
-+'.ct-method-row{padding:2px 0 4px;}'
-+'.ct-method-select{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #f0e0e5;font-size:10.5px;background:white;cursor:pointer;font-family:Aptos,Arial,sans-serif;}'
++'.ct-ticket-btn-row .ct-popup-btn{flex:1;text-align:center;padding:7px 2px;font-size:9.5px;}'
++'.ndc-label{background:#ff2e5f;color:white;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:5px;}'
++'.emd-label{background:#ffc107;color:#333;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:5px;}'
++'.ct-method-select{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #f0e0e5;font-size:10.5px;background:white;cursor:pointer;font-family:Aptos,Arial,sans-serif;margin-top:4px;}'
 +'.ct-method-select:hover{border-color:#ff2e5f;}'
 
-// Save toast
+// Keyboard shortcut table
++'.ct-shortcuts-table{width:100%;border-collapse:collapse;margin-top:4px;}'
++'.ct-shortcuts-table tr:hover{background:#fff0f4;}'
++'.ct-shortcuts-table td{padding:5px 6px;font-size:10px;color:#333;}'
++'.ct-shortcuts-table td:first-child{white-space:nowrap;padding-right:10px;}'
++'kbd{background:#f0f0f0;border:1px solid #ccc;border-radius:3px;'
++'padding:1px 5px;font-size:9px;font-family:monospace;color:#333;}'
+
+// Toast
 +'.save-pnr-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
 +'background:#28a745;color:white;padding:15px 30px;border-radius:8px;z-index:1000003;'
 +'font-size:14px;font-weight:bold;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:ctFadeOut 3s forwards;}'
@@ -849,11 +987,13 @@ style.textContent=
 
 document.head.appendChild(style);
 
-// ── Mount toolbar ─────────────────────────────────────────────────────────────
+// ── Mount ─────────────────────────────────────────────────────────────────────
 var toolbar=document.createElement('div');
 toolbar.id='ctToolbar';
-toolbar.innerHTML=buildToolbar(currentBookingInfo);
+toolbar.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(toolbar);
 attachToolbarHandlers();
+syncNotesBanner(currentBookingInfo);
+setTimeout(repositionBanner,50);
 
 })();
