@@ -1053,13 +1053,13 @@ if(collapsible)collapsible.classList.toggle('expanded');
 break;
 
 case 'updateTTL':
-executeSabreCommand('7TAW/'+todayDDMON(),null);
-showToast('✓ TTL command sent');
+executeSabreCommand('7TAW'+todayDDMON()+'/',null);
+showToast('✓ TTL UPDATED TO TODAY');
 break;
 
 case 'queueSerko':
 executeSabreCommand('QP/90/1',null);
-showToast('✓ Queue command sent');
+showToast('✓ Queued back to Serko/Savi');
 break;
 }
 });
