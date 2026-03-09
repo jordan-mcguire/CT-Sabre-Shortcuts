@@ -628,8 +628,6 @@ setTimeout(function(){tb.remove();createCollapsedPill();},180);
 
 function createCollapsedPill(){
 var info=currentBookingInfo;
-var traveller=info.traveller||cachedTraveler||'';
-var company=info.company||'';
 var hasNotes=info.notes&&info.notes.length>0;
 var borderColor=approvalBorderColor(info.approved);
 
@@ -637,15 +635,9 @@ var icon=document.createElement('div');
 icon.id='ctToolbarIcon';
 icon.title='CT Sabre Shortcuts — click to expand';
 icon.innerHTML=
-'<div class="ct-collapsed-inner" style="border-left:4px solid '+borderColor+';">'
-+(hasNotes?'<div class="ct-collapsed-notes-bar">⚠️ '+info.notes.length+' note'+(info.notes.length>1?'s':'')+' to agent</div>':'')
-+'<div class="ct-collapsed-body">'
+'<div class="ct-collapsed-bubble" style="border:3px solid '+borderColor+';">'
 +'<span class="ct-collapsed-plane">✈</span>'
-+'<div class="ct-collapsed-names">'
-+(company?'<div class="ct-collapsed-company">'+trunc(company,20)+'</div>':'')
-+(traveller?'<div class="ct-collapsed-traveller">'+trunc(traveller,20)+'</div>':'<div class="ct-collapsed-traveller ct-dim">No booking</div>')
-+'</div>'
-+'</div>'
++(hasNotes?'<span class="ct-collapsed-notes-dot">'+info.notes.length+'</span>':'')
 +'</div>';
 icon.addEventListener('click',expandToolbar);
 document.body.appendChild(icon);
@@ -891,27 +883,21 @@ style.textContent=
 +'padding:0 2px;border:1.5px solid white;line-height:1;}'
 
 // Collapsed pill — wider, two-line stacked
-+'#ctToolbarIcon{'
-+'position:fixed;bottom:20px;right:20px;z-index:999999;'
-+'cursor:pointer;animation:ctPopIn 0.2s ease-out;}'
-+'#ctToolbarIcon:hover .ct-collapsed-inner{box-shadow:0 6px 24px rgba(0,0,0,0.22);}'
-+'.ct-collapsed-inner{'
-+'background:white;'
-+'border-radius:12px;'
-+'border:1.5px solid #f0d0d8;'
-+'border-left:4px solid #ff2e5f;'
-+'box-shadow:0 4px 16px rgba(0,0,0,0.15);'
-+'overflow:hidden;min-width:160px;max-width:210px;}'
-+'.ct-collapsed-notes-bar{'
-+'background:#fff3e0;border-bottom:1px solid #ffcc80;'
-+'padding:4px 10px;font-size:9px;font-weight:700;color:#e65100;}'
-+'.ct-collapsed-body{'
-+'display:flex;align-items:center;gap:8px;padding:8px 12px;'
-+'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);}'
-+'.ct-collapsed-plane{font-size:16px;flex-shrink:0;}'
-+'.ct-collapsed-names{display:flex;flex-direction:column;gap:2px;min-width:0;}'
-+'.ct-collapsed-company{font-size:8.5px;font-weight:800;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-+'.ct-collapsed-traveller{font-size:10.5px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'#ctToolbarIcon{position:fixed;bottom:20px;right:20px;z-index:999999;cursor:pointer;animation:ctPopIn 0.2s ease-out;}'
++'#ctToolbarIcon:hover .ct-collapsed-bubble{transform:scale(1.08);}'
++'.ct-collapsed-bubble{'
++'width:48px;height:48px;border-radius:50%;'
++'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);'
++'box-shadow:0 4px 16px rgba(0,0,0,0.25);'
++'display:flex;align-items:center;justify-content:center;'
++'position:relative;transition:transform 0.15s;}'
++'.ct-collapsed-plane{font-size:22px;line-height:1;}'
++'.ct-collapsed-notes-dot{'
++'position:absolute;top:0;right:0;'
++'background:#ff9800;color:white;font-size:8px;font-weight:800;'
++'min-width:16px;height:16px;border-radius:8px;'
++'display:flex;align-items:center;justify-content:center;'
++'padding:0 3px;border:2px solid white;line-height:1;}'
 
 // Notes banner
 +'#ctNotesBanner{'
