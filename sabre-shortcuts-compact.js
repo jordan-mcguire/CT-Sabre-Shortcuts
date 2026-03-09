@@ -1,12 +1,9 @@
 (function(){
-if(document.getElementById('ctToolbar')){
-document.getElementById('ctToolbar').remove();
-}
+if(document.getElementById('ctToolbar'))document.getElementById('ctToolbar').remove();
+if(document.getElementById('ctToolbarIcon'))document.getElementById('ctToolbarIcon').remove();
 ['ctNotesBanner','ctCopyPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
-var existingIcon=document.getElementById('ctToolbarIcon');
-if(existingIcon)existingIcon.remove();
 
 // ── Refund page ───────────────────────────────────────────────────────────────
 if(window.location.href.includes('auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create')){
@@ -59,15 +56,15 @@ tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
 tidyButton.id='ctTidyButton';
 tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
 if(!document.getElementById('ctTidyStyle')){
-var tidyStyle=document.createElement('style');tidyStyle.id='ctTidyStyle';
-tidyStyle.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
-document.head.appendChild(tidyStyle);
+var ts=document.createElement('style');ts.id='ctTidyStyle';
+ts.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
+document.head.appendChild(ts);
 }
 actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
 tidyButton.querySelector('button').addEventListener('click',function(){
-var script=document.createElement('script');
-script.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
-document.body.appendChild(script);
+var s=document.createElement('script');
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
+document.body.appendChild(s);
 });
 }
 var proposalObserver=new MutationObserver(function(){injectTidyButton();});
@@ -87,36 +84,41 @@ var pendingCommandPoll=null;
 var openPopup=null;
 var notesExpanded=false;
 
-// ── Keyboard shortcuts map ────────────────────────────────────────────────────
-// Each entry: [key, modifier, label, action]
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Verified safe: no conflicts with Chrome/Edge/Windows standard shortcuts
 var SHORTCUTS=[
 ['P','Alt','Copy PNR','copyPNR'],
 ['L','Alt','Copy Lumina ID','copyLuminaId'],
 ['B','Alt','Copy Booking Info','copyBookingInfo'],
 ['N','Alt','Copy Name','copyName'],
 ['M','Alt','Copy Mobile','copyMobile'],
-['E','Alt','Copy Email','copyEmail'],
-['T','Alt','Copy All Contact','copyAllContact'],
+['W','Alt','Copy Email','copyEmail'],         // Alt+E = Edge menu bar, using W instead
+['C','Alt','Copy All Contact','copyAllContact'], // Alt+T = tab cycling in some configs
 ['K','Alt','Toggle Notes','toggleNotes'],
+['S','Alt','View in Serko','viewSerko'],
+['Y','Alt','View in YourCT','masquerade'],
+['A','Alt','View in Agentport (Profile)','viewAgentportProfile'],
+['G','Alt','View in Agentport (Company)','viewAgentportCompany'],
+['U','Alt','Copy Email Subject','copyEmailSubject'],
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function todayDDMON(){
 var d=new Date();
-var dd=String(d.getDate()).padStart(2,'0');
 var months=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-return dd+months[d.getMonth()];
+return String(d.getDate()).padStart(2,'0')+months[d.getMonth()];
 }
 
 function flashCopied(el){
 if(!el)return;
-var orig=el.textContent;
-el.textContent='✓';el.style.background='#28a745';el.style.color='white';el.style.borderColor='#28a745';
-setTimeout(function(){el.textContent=orig;el.style.background='';el.style.color='';el.style.borderColor='';},900);
+var orig=el.innerHTML;
+var origBg=el.style.background||'';var origColor=el.style.color||'';
+el.innerHTML='✓ Copied';el.style.background='#28a745';el.style.color='white';
+setTimeout(function(){el.innerHTML=orig;el.style.background=origBg;el.style.color=origColor;},900);
 }
 
 function showToast(msg){
-var existing=document.getElementById('ctSabreToast');if(existing)existing.remove();
+var ex=document.getElementById('ctSabreToast');if(ex)ex.remove();
 var t=document.createElement('div');t.id='ctSabreToast';t.textContent=msg;
 t.style.cssText='position:fixed;bottom:90px;right:24px;background:#28a745;color:white;'
 +'font-family:Aptos,Arial,sans-serif;font-size:12px;font-weight:600;'
@@ -140,7 +142,7 @@ if(approved==='rejected')return '#ff3333';
 if(approved==='cancellation')return '#ff9800';
 if(approved===true)return '#28a745';
 if(approved===false&&currentBookingInfo&&currentBookingInfo.booker)return '#ffc107';
-return 'rgba(255,255,255,0.25)';
+return '#ff2e5f';
 }
 
 function approvalChipHTML(approved){
@@ -158,17 +160,17 @@ var attempts=0;
 pendingCommandPoll=setInterval(function(){
 attempts++;
 var info=extractBookingInfo();
-var detectedView=info.hasEticket?'eticket':(info.tickets.length>0?'list':'default');
-if(detectedView===expectedView||attempts>=20){
+var detected=info.hasEticket?'eticket':(info.tickets.length>0?'list':'default');
+if(detected===expectedView||attempts>=20){
 clearInterval(pendingCommandPoll);pendingCommandPoll=null;
 if(info.pnr&&info.pnr.length===6)cachedPNR=info.pnr;
 if(info.traveller&&info.traveller.trim()!=='')cachedTraveler=info.traveller;
-currentBookingInfo=info;currentTicketView=detectedView;
+currentBookingInfo=info;currentTicketView=detected;
 updateAll();
-if(detectedView==='eticket'||detectedView==='list'){
+if(detected==='eticket'||detected==='list'){
 setTimeout(function(){
 var btn=document.getElementById('ctBtnTicket');
-if(btn)showPopup('ctTicketPanel',buildTicketPanel(currentBookingInfo),btn);
+if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
 },80);
 }
 if(typeof callback==='function')callback();
@@ -189,23 +191,42 @@ else if(typeof callback==='function')setTimeout(callback,800);
 },100);
 }
 
+// Sends two commands sequentially: first changes method to M, then updates TTL
+function executeMissedTTL(){
+closeAllPopups();
+// Step 1: update method to Mixed (M)
+var methodLine=currentBookingInfo.methodLine;
+if(!methodLine){showToast('⚠️ No method line found');return;}
+executeSabreCommand('5'+methodLine+'¤L¥METHOD-M',null,function(){
+// Step 2: update TTL to today
+setTimeout(function(){
+executeSabreCommand('7TAW/'+todayDDMON(),null,function(){
+// Prompt agent to save and re-download
+setTimeout(function(){
+showSavePNRMessage('💾 Save PNR then re-download to Lumina (LDD)');
+},400);
+});
+},600);
+});
+}
+
 // ── Extraction ────────────────────────────────────────────────────────────────
 function extractClassicTickets(bodyText){
 var tickets=[];
 if(!bodyText.includes('TKT/TIME LIMIT'))return tickets;
-var lines=bodyText.split('\n');var inTicketSection=false;
+var lines=bodyText.split('\n');var inSection=false;
 for(var i=0;i<lines.length;i++){
 var line=lines[i].trim();
-if(line==='TKT/TIME LIMIT'){inTicketSection=true;continue;}
-if(inTicketSection){
+if(line==='TKT/TIME LIMIT'){inSection=true;continue;}
+if(inSection){
 var match=line.match(/^.*(TE|TO|ME|MO)\s+(\d{13,17})/);
 if(match){
-var prefix=match[1];var ticketNo=match[2];
+var p=match[1];var tn=match[2];
 var type='regular';var isNDC=false;var isEMD=false;
-if(prefix==='TO'){type='ndc';isNDC=true;}
-else if(prefix==='ME'){type='emd';isEMD=true;}
-else if(prefix==='MO'){type='ndc-emd';isNDC=true;isEMD=true;}
-tickets.push({type:type,ticketNo:ticketNo,isNDC:isNDC,isEMD:isEMD,source:'classic'});
+if(p==='TO'){type='ndc';isNDC=true;}
+else if(p==='ME'){type='emd';isEMD=true;}
+else if(p==='MO'){type='ndc-emd';isNDC=true;isEMD=true;}
+tickets.push({type:type,ticketNo:tn,isNDC:isNDC,isEMD:isEMD,source:'classic'});
 }
 if(line===''||line.match(/^[A-Z]+$/))break;
 }
@@ -213,24 +234,23 @@ if(line===''||line.match(/^[A-Z]+$/))break;
 return tickets;
 }
 
-function isViewingIndividualETicket(bodyText){return bodyText.indexOf('ELECTRONIC TICKET RECORD')>-1;}
+function isViewingIndividualETicket(t){return t.indexOf('ELECTRONIC TICKET RECORD')>-1;}
 
-function extractFirstPaxRaw(bodyText){
-var m=bodyText.match(/1\.1([^\n]+)/);
-if(!m)return '';
+function extractFirstPaxRaw(t){
+var m=t.match(/1\.1([^\n]+)/);if(!m)return '';
 return m[1].replace(/\s+\d+\.\d+.*$/,'').trim();
 }
 
 function extractBookingInfo(){
-var responseElement=document.querySelector('.app.responses.text.views.Text.text');
-var bodyText=responseElement?responseElement.innerText:document.body.innerText;
+var re=document.querySelector('.app.responses.text.views.Text.text');
+var bodyText=re?re.innerText:document.body.innerText;
 var lines=document.querySelectorAll('.dn-line.text-line');
 var info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',
 method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',
 hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[],isGraphicalView:false};
 
-var isGraphicalView=document.querySelector('.pnr-record-locator')!==null;
-if(isGraphicalView){
+var isGfx=document.querySelector('.pnr-record-locator')!==null;
+if(isGfx){
 var pnrEl=document.querySelector('.pnr-record-locator');if(pnrEl)info.pnr=pnrEl.textContent.trim();
 var travEl=document.querySelector('.pnr-pax');if(travEl)info.traveller=travEl.textContent.trim();
 document.querySelectorAll('.pay-ticket-segment-ticketing .docNumber').forEach(function(el){
@@ -238,26 +258,26 @@ var t=el.textContent.trim();
 if(t&&t.match(/^\d{13,17}$/))info.tickets.push({ticketNo:t,type:'regular',isNDC:false,isEMD:false,source:'graphical'});
 });
 var ndcSec=document.querySelector('#ticketing-list');
-if(ndcSec){ndcSec.querySelectorAll('.number-col .itinerary-segment-value').forEach(function(el){
+if(ndcSec)ndcSec.querySelectorAll('.number-col .itinerary-segment-value').forEach(function(el){
 var t=el.textContent.trim();
 if(t&&t.match(/^\d{13,17}$/))info.tickets.push({ticketNo:t,type:'ndc',isNDC:true,isEMD:false,source:'graphical'});
-});}
+});
 info.isGraphicalView=true;ticketsInView=info.tickets;
 currentTicketView=info.tickets.length>0?'list':'default';return info;
 }
 
-var viewingETicket=isViewingIndividualETicket(bodyText);
-var classicTickets=extractClassicTickets(bodyText);
-if(viewingETicket){currentTicketView='eticket';info.hasEticket=true;}
-else if(classicTickets.length>0){currentTicketView='list';info.tickets=classicTickets;ticketsInView=classicTickets;}
+var viewingET=isViewingIndividualETicket(bodyText);
+var classicT=extractClassicTickets(bodyText);
+if(viewingET){currentTicketView='eticket';info.hasEticket=true;}
+else if(classicT.length>0){currentTicketView='list';info.tickets=classicT;ticketsInView=classicT;}
 else{currentTicketView='default';}
 
-var passengerLineIndex=-1;
-for(var i=0;i<lines.length;i++){if(lines[i].innerText.trim().startsWith('1.1')){passengerLineIndex=i;break;}}
-if(passengerLineIndex>0){
-for(var j=0;j<passengerLineIndex;j++){
-var t=lines[j].innerText.trim();
-if(t.length===6&&/^[A-Z]{6}$/i.test(t)){info.pnr=t;break;}
+var paxIdx=-1;
+for(var i=0;i<lines.length;i++){if(lines[i].innerText.trim().startsWith('1.1')){paxIdx=i;break;}}
+if(paxIdx>0){
+for(var j=0;j<paxIdx;j++){
+var tv=lines[j].innerText.trim();
+if(tv.length===6&&/^[A-Z]{6}$/i.test(tv)){info.pnr=tv;break;}
 }
 }
 
@@ -301,35 +321,20 @@ return s.length>max?'<span title="'+s.replace(/"/g,'&quot;')+'">'+s.substring(0,
 }
 
 // ── Notes banner ──────────────────────────────────────────────────────────────
-// Always floats directly above the toolbar when notes exist.
-// Click to expand/collapse the note text.
-function buildNotesBanner(notes){
-if(!notes||notes.length===0)return null;
-var banner=document.createElement('div');
-banner.id='ctNotesBanner';
-renderNotesBanner(banner,notes);
-return banner;
-}
-
 function renderNotesBanner(banner,notes){
-var expanded=notesExpanded;
-// Banner is 300px wide to fit ~42 chars per note line comfortably
 banner.innerHTML=
 '<div class="ct-banner-header">'
 +'<span class="ct-banner-icon">⚠️</span>'
 +'<span class="ct-banner-title">'+notes.length+' Note'+(notes.length>1?'s':'')+' to Agent</span>'
-+'<span class="ct-banner-toggle">'+(expanded?'▾':'▸')+'</span>'
++'<span class="ct-banner-toggle">'+(notesExpanded?'▾':'▸')+'</span>'
 +'</div>'
-+(expanded
-? '<div class="ct-banner-notes">'
++(notesExpanded
+?'<div class="ct-banner-notes">'
 +notes.map(function(n){return '<div class="ct-banner-note-line">'+n+'</div>';}).join('')
-+'</div>'
-: '');
++'</div>':'');
 banner.onclick=function(e){
-e.stopPropagation();
-notesExpanded=!notesExpanded;
-renderNotesBanner(banner,notes);
-repositionBanner();
+e.stopPropagation();notesExpanded=!notesExpanded;
+renderNotesBanner(banner,notes);repositionBanner();
 };
 }
 
@@ -338,8 +343,7 @@ var tb=document.getElementById('ctToolbar');
 var banner=document.getElementById('ctNotesBanner');
 if(!tb||!banner)return;
 var tbRect=tb.getBoundingClientRect();
-var bannerHeight=banner.offsetHeight;
-banner.style.bottom=(window.innerHeight-tbRect.top+6)+'px';
+banner.style.bottom=(window.innerHeight-tbRect.top+8)+'px';
 banner.style.right=(window.innerWidth-tbRect.right)+'px';
 }
 
@@ -347,132 +351,127 @@ function syncNotesBanner(info){
 var existing=document.getElementById('ctNotesBanner');
 if(info.notes&&info.notes.length>0){
 if(!existing){
-var banner=buildNotesBanner(info.notes);
-if(banner){document.body.appendChild(banner);repositionBanner();}
-}else{
-// Update note content but keep expanded state
-renderNotesBanner(existing,info.notes);
-repositionBanner();
+var banner=document.createElement('div');
+banner.id='ctNotesBanner';
+document.body.appendChild(banner);
 }
+renderNotesBanner(document.getElementById('ctNotesBanner'),info.notes);
+repositionBanner();
 }else{
 if(existing)existing.remove();
 notesExpanded=false;
 }
 }
 
-// ── Build toolbar ─────────────────────────────────────────────────────────────
+// ── Build toolbar HTML ────────────────────────────────────────────────────────
 function buildToolbarHTML(info){
 var traveller=info.traveller||cachedTraveler||'';
+var company=info.company||'';
 var approved=info.approved;
 var borderColor=approvalBorderColor(approved);
 var chip=approvalChipHTML(approved);
 var hasTickets=currentTicketView==='list'||currentTicketView==='eticket';
-var notesBadge=info.notes&&info.notes.length>0
-?'<span class="ct-notes-dot">'+info.notes.length+'</span>':'' ;
+var notesDot=info.notes&&info.notes.length>0
+?'<span class="ct-notes-dot">'+info.notes.length+'</span>':'';
 
-var html='<div id="ctToolbarInner" style="border-left:3px solid '+borderColor+';">';
-// Left: name + approval chip
-html+='<div class="ct-name-area" title="Drag to move">';
-html+='<span class="ct-plane">✈</span>';
-html+='<div class="ct-name-block">';
-if(traveller){
-html+='<span class="ct-traveller">'+trunc(traveller,24)+'</span>';
-}else{
-html+='<span class="ct-traveller ct-dim">No booking</span>';
-}
-if(chip)html+='<div class="ct-chip-row">'+chip+'</div>';
-html+='</div>';
-html+='</div>';
-// Right: icon buttons
-html+='<div class="ct-icon-btns">';
-html+='<button class="ct-icon-btn" id="ctBtnCopy" title="Copy (Alt+…)">📋</button>';
-if(hasTickets){
-html+='<button class="ct-icon-btn" id="ctBtnTicket" title="Ticket actions">🎫</button>';
-}
-html+='<button class="ct-icon-btn ct-actions-btn" id="ctBtnActions" title="Actions">⚡'+notesBadge+'</button>';
-html+='<button class="ct-icon-btn ct-shortcuts-btn" id="ctBtnShortcuts" title="Keyboard shortcuts">?</button>';
-html+='<button class="ct-icon-btn ct-collapse-btn" id="ctBtnCollapse" title="Collapse">−</button>';
-html+='</div>';
-html+='</div>';
-return html;
+return '<div id="ctToolbarInner" style="border-left:4px solid '+borderColor+';">'
+// Info block — company + name stacked
++'<div class="ct-name-area" title="Drag to move">'
++'<div class="ct-name-block">'
++(company?'<div class="ct-company">'+trunc(company,22)+'</div>':'')
++(traveller
+?'<div class="ct-traveller">✈ '+trunc(traveller,22)+'</div>'
+:'<div class="ct-traveller ct-dim">No booking loaded</div>')
++(chip?'<div class="ct-chip-row">'+chip+'</div>':'')
++'</div>'
++'</div>'
+// Button group
++'<div class="ct-btn-group">'
++'<button class="ct-tb-btn ct-btn-copy" id="ctBtnCopy" title="Copy options">📋 Copy</button>'
++(hasTickets?'<button class="ct-tb-btn ct-btn-ticket" id="ctBtnTicket" title="Ticket actions">🎫 Ticket</button>':'')
++'<button class="ct-tb-btn ct-btn-actions" id="ctBtnActions" title="Actions">⚡ Actions'+notesDot+'</button>'
++'<button class="ct-tb-btn ct-btn-shortcuts" id="ctBtnShortcuts" title="Keyboard shortcuts">⌨️</button>'
++'<button class="ct-tb-btn ct-btn-collapse" id="ctBtnCollapse" title="Collapse">−</button>'
++'</div>'
++'</div>';
 }
 
-// ── Build popups ──────────────────────────────────────────────────────────────
+// ── Popup content builders ────────────────────────────────────────────────────
 function buildCopyPopupHTML(info){
 var hasContact=info.email||info.phone;
-var html='<div class="ct-popup-section-label">COPY</div>';
-html+='<button class="ct-popup-btn" data-action="copyPNR">📋 PNR <kbd>Alt+P</kbd></button>';
-html+='<button class="ct-popup-btn" data-action="copyLuminaId">📋 Lumina ID <kbd>Alt+L</kbd></button>';
-html+='<button class="ct-popup-btn" data-action="copyBookingInfo">📋 Full Booking Info <kbd>Alt+B</kbd></button>';
+var h='<div class="ct-popup-label">COPY</div>';
+h+='<button class="ct-popup-btn" data-action="copyPNR">📋 PNR <kbd>Alt+P</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyLuminaId">📋 Lumina ID <kbd>Alt+L</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyBookingInfo">📋 Full Booking Info <kbd>Alt+B</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyEmailSubject">✉️ Email Subject <kbd>Alt+U</kbd></button>';
 if(hasContact){
-html+='<div class="ct-popup-divider"></div>';
-html+='<div class="ct-popup-section-label">CONTACT</div>';
-html+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kbd></button>';
-html+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
-html+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+E</kbd></button>';
-html+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+T</kbd></button>';
+h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">CONTACT</div>';
+h+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+W</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+C</kbd></button>';
 }
-return html;
+return h;
 }
 
 function buildActionsPopupHTML(info){
-var html='';
-html+='<div class="ct-popup-section-label">NAVIGATE</div>';
-html+='<button class="ct-popup-btn" data-action="viewSerko">🔗 View in Serko</button>';
-html+='<button class="ct-popup-btn" data-action="masquerade">👤 View in YourCT</button>';
-html+='<div class="ct-popup-divider"></div>';
-html+='<div class="ct-popup-section-label">COMMANDS</div>';
-html+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+')</button>';
-html+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko</button>';
+var h='<div class="ct-popup-label">NAVIGATE</div>';
+h+='<button class="ct-popup-btn" data-action="viewSerko">🔗 View in Serko <kbd>Alt+S</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="masquerade">👤 View in YourCT <kbd>Alt+Y</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="viewAgentportProfile">🧑 Agentport (Profile) <kbd>Alt+A</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="viewAgentportCompany">🏢 Agentport (Company) <kbd>Alt+G</kbd></button>';
+h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">COMMANDS</div>';
+h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+')</button>';
+h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko</button>';
+h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL)</button>';
 if(info.method){
-html+='<div class="ct-popup-divider"></div>';
-html+='<div class="ct-popup-section-label">BOOKING METHOD</div>';
-html+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
+h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
+h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
 +'<option value="W"'+(info.method==='W'?' selected':'')+'>Web</option>'
 +'<option value="M"'+(info.method==='M'?' selected':'')+'>Mixed</option>'
 +'<option value="E"'+(info.method==='E'?' selected':'')+'>Email</option>'
 +'<option value="T"'+(info.method==='T'?' selected':'')+'>Telephone</option>'
 +'</select>';
 }
-return html;
+return h;
 }
 
 function buildTicketPanelHTML(info){
-var html='';
+var h='';
 if(currentTicketView==='list'&&info.tickets&&info.tickets.length>0){
-html+='<div class="ct-popup-section-label">🎫 SELECT TICKET</div>';
+h+='<div class="ct-popup-label">🎫 SELECT TICKET</div>';
 info.tickets.forEach(function(ticket){
 var labels='';
 if(ticket.isNDC)labels+=' <span class="ndc-label">NDC</span>';
 if(ticket.isEMD)labels+=' <span class="emd-label">EMD</span>';
-html+='<button class="ct-popup-btn ct-ticket-item" data-ticket-no="'+ticket.ticketNo+'" data-type="'+ticket.type+'">'+ticket.ticketNo+labels+'</button>';
+h+='<button class="ct-popup-btn ct-ticket-item" data-ticket-no="'+ticket.ticketNo+'" data-type="'+ticket.type+'">'+ticket.ticketNo+labels+'</button>';
 });
-html+='<div class="ct-ticket-note">NDC tickets require graphical view in Ticketing tab.</div>';
+h+='<div class="ct-ticket-note">NDC tickets require graphical view in Ticketing tab.</div>';
 }else if(currentTicketView==='eticket'){
-html+='<div class="ct-popup-section-label">🎫 TICKET ACTIONS</div>';
-html+='<div class="ct-ticket-btn-row">';
-html+='<button class="ct-popup-btn" data-action="copyTicketNo">TKT NO</button>';
-html+='<button class="ct-popup-btn" data-action="copyTicketName">NAME</button>';
-html+='<button class="ct-popup-btn" data-action="copyTicketPNR">PNR</button>';
-html+='</div>';
-html+='<button class="ct-popup-btn ct-highlight-btn" data-action="copyAllTicket">📋 Copy All Ticket Info</button>';
-html+='<button class="ct-popup-btn ct-highlight-btn" data-action="refundTicket">↩️ Refund Ticket</button>';
+h+='<div class="ct-popup-label">🎫 TICKET ACTIONS</div>';
+h+='<div class="ct-tkt-row">';
+h+='<button class="ct-popup-btn" data-action="copyTicketNo">TKT NO</button>';
+h+='<button class="ct-popup-btn" data-action="copyTicketName">NAME</button>';
+h+='<button class="ct-popup-btn" data-action="copyTicketPNR">PNR</button>';
+h+='</div>';
+h+='<button class="ct-popup-btn ct-hl-btn" data-action="copyAllTicket">📋 Copy All Ticket Info</button>';
+h+='<button class="ct-popup-btn ct-hl-btn" data-action="refundTicket">↩️ Refund Ticket</button>';
 if(cameFromTicketList&&ticketsInView.length>1){
-html+='<div class="ct-popup-divider"></div>';
-html+='<button class="ct-popup-btn" data-action="backToList">← Back to Ticket List</button>';
+h+='<div class="ct-popup-divider"></div>';
+h+='<button class="ct-popup-btn" data-action="backToList">← Back to Ticket List</button>';
 }
 }
-return html;
+return h;
 }
 
 function buildShortcutsPopupHTML(){
-var html='<div class="ct-popup-section-label">⌨️ KEYBOARD SHORTCUTS</div>';
-html+='<table class="ct-shortcuts-table">';
+var h='<div class="ct-popup-label">⌨️ KEYBOARD SHORTCUTS</div>';
+h+='<table class="ct-sc-table">';
 SHORTCUTS.forEach(function(s){
-html+='<tr><td><kbd>'+s[1]+'+'+s[0]+'</kbd></td><td>'+s[2]+'</td></tr>';
+h+='<tr><td><kbd>'+s[1]+'+'+s[0]+'</kbd></td><td>'+s[2]+'</td></tr>';
 });
-html+='</table>';
-return html;
+h+='</table>';
+return h;
 }
 
 // ── Popup factory ─────────────────────────────────────────────────────────────
@@ -485,7 +484,7 @@ popup.innerHTML=contentHTML;
 document.body.appendChild(popup);
 var rect=anchorBtn.getBoundingClientRect();
 popup.style.right=(window.innerWidth-rect.right)+'px';
-popup.style.bottom=(window.innerHeight-rect.top+6)+'px';
+popup.style.bottom=(window.innerHeight-rect.top+8)+'px';
 requestAnimationFrame(function(){popup.style.opacity='1';popup.style.transform='translateY(0)';});
 openPopup=id;
 attachPopupHandlers(popup);
@@ -493,12 +492,8 @@ attachPopupHandlers(popup);
 
 // ── Popup handlers ────────────────────────────────────────────────────────────
 function attachPopupHandlers(popup){
-var methodSelect=popup.querySelector('.ct-method-select');
-if(methodSelect){
-methodSelect.addEventListener('change',function(){
-updateMethod(this.getAttribute('data-line'),this.value);
-});
-}
+var ms=popup.querySelector('.ct-method-select');
+if(ms)ms.addEventListener('change',function(){updateMethod(this.getAttribute('data-line'),this.value);});
 popup.querySelectorAll('.ct-ticket-item').forEach(function(btn){
 btn.addEventListener('click',function(e){
 e.stopPropagation();
@@ -514,99 +509,105 @@ handleAction(this.getAttribute('data-action'),this);
 });
 }
 
-// ── Centralised action handler ────────────────────────────────────────────────
+// ── Central action handler ────────────────────────────────────────────────────
 function handleAction(action,el){
 switch(action){
 case 'copyPNR':
-if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6){navigator.clipboard.writeText(currentBookingInfo.pnr);if(el)flashCopied(el);else showToast('✓ PNR copied');}
+if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6){
+navigator.clipboard.writeText(currentBookingInfo.pnr);
+el?flashCopied(el):showToast('✓ PNR copied');}
 break;
 case 'copyLuminaId':
-if(currentBookingInfo.luminaId){navigator.clipboard.writeText(currentBookingInfo.luminaId);if(el)flashCopied(el);else showToast('✓ Lumina ID copied');}
+if(currentBookingInfo.luminaId){
+navigator.clipboard.writeText(currentBookingInfo.luminaId);
+el?flashCopied(el):showToast('✓ Lumina ID copied');}
 break;
 case 'copyBookingInfo':
-copyBookingInfoRich().then(function(){showToast('✓ Booking info copied');});
+copyBookingInfoRich().then(function(){showToast('✓ Booking info copied');});break;
+case 'copyEmailSubject':
+var esParts=[];
+var esLumina=currentBookingInfo.luminaId;
+var esPNR=currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6?currentBookingInfo.pnr:(cachedPNR||'');
+var esTraveller=currentBookingInfo.traveller||cachedTraveler||'';
+var esCore='';
+if(esLumina)esCore+='Corporate Traveller Booking #'+esLumina;
+if(esPNR)esCore+=(esCore?' / ':'')+esPNR;
+if(esTraveller)esCore+=(esCore?' - ':'')+esTraveller;
+if(esCore){
+navigator.clipboard.writeText(esCore);
+el?flashCopied(el):showToast('✓ Email subject copied');
+}
 break;
 case 'copyName':
-var rawName=currentBookingInfo.traveller||cachedTraveler||'';
-if(rawName){navigator.clipboard.writeText(rawName);if(el)flashCopied(el);else showToast('✓ Name copied');}
-break;
+var rn=currentBookingInfo.traveller||cachedTraveler||'';
+if(rn){navigator.clipboard.writeText(rn);el?flashCopied(el):showToast('✓ Name copied');}break;
 case 'copyMobile':
-if(currentBookingInfo.phone){navigator.clipboard.writeText(currentBookingInfo.phone);if(el)flashCopied(el);else showToast('✓ Mobile copied');}
-break;
+if(currentBookingInfo.phone){navigator.clipboard.writeText(currentBookingInfo.phone);el?flashCopied(el):showToast('✓ Mobile copied');}break;
 case 'copyEmail':
-if(currentBookingInfo.email){navigator.clipboard.writeText(currentBookingInfo.email);if(el)flashCopied(el);else showToast('✓ Email copied');}
-break;
+if(currentBookingInfo.email){navigator.clipboard.writeText(currentBookingInfo.email);el?flashCopied(el):showToast('✓ Email copied');}break;
 case 'copyAllContact':
-copyContactDetailsRich().then(function(){showToast('✓ Contact copied');closeAllPopups();});
-break;
+copyContactDetailsRich().then(function(){showToast('✓ Contact copied');closeAllPopups();});break;
 case 'toggleNotes':
 notesExpanded=!notesExpanded;
-var banner=document.getElementById('ctNotesBanner');
-if(banner)renderNotesBanner(banner,currentBookingInfo.notes);
-repositionBanner();
-break;
+var bnr=document.getElementById('ctNotesBanner');
+if(bnr)renderNotesBanner(bnr,currentBookingInfo.notes);repositionBanner();break;
 case 'copyTicketNo':
 var tkt=currentBookingInfo.ticketInfo.ticketNo||(cachedTicketContext&&cachedTicketContext.ticketNo)||'';
-if(tkt){navigator.clipboard.writeText(tkt);if(el)flashCopied(el);else showToast('✓ Ticket No copied');}
-break;
+if(tkt){navigator.clipboard.writeText(tkt);el?flashCopied(el):showToast('✓ Ticket No copied');}break;
 case 'copyTicketName':
-var tname=currentBookingInfo.ticketInfo.paxName||(cachedTicketContext&&cachedTicketContext.traveler)||cachedTraveler||'';
-if(tname){navigator.clipboard.writeText(tname);if(el)flashCopied(el);else showToast('✓ Name copied');}
-break;
+var tnm=currentBookingInfo.ticketInfo.paxName||(cachedTicketContext&&cachedTicketContext.traveler)||cachedTraveler||'';
+if(tnm){navigator.clipboard.writeText(tnm);el?flashCopied(el):showToast('✓ Name copied');}break;
 case 'copyTicketPNR':
 var tpnr=currentBookingInfo.ticketInfo.pnr||(cachedTicketContext&&cachedTicketContext.pnr)||cachedPNR||'';
-if(tpnr){navigator.clipboard.writeText(tpnr);if(el)flashCopied(el);else showToast('✓ PNR copied');}
-break;
+if(tpnr){navigator.clipboard.writeText(tpnr);el?flashCopied(el):showToast('✓ PNR copied');}break;
 case 'copyAllTicket':
-copyAllTicketInfo().then(function(){showToast('✓ Ticket details copied');});
-break;
+copyAllTicketInfo().then(function(){showToast('✓ Ticket details copied');});break;
 case 'refundTicket':
-copyRefundData();closeAllPopups();
-break;
+copyRefundData();closeAllPopups();break;
 case 'backToList':
 cameFromTicketList=false;cachedTicketContext=null;currentTicketView='list';
 updateAll();
-setTimeout(function(){var btn=document.getElementById('ctBtnTicket');if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);},80);
+setTimeout(function(){var b=document.getElementById('ctBtnTicket');if(b)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),b);},80);
 break;
 case 'viewSerko':
-var smatch=document.body.innerText.match(/Q¥QUOTE NUMBER\s*-\s*(\d+)/);
-if(smatch&&smatch[1])window.open('https://serko.corporatetraveller.com.au/Web/Booking/Detail/'+smatch[1],'_blank');
-else alert('Quote number not found!');
-break;
+var sm=document.body.innerText.match(/Q¥QUOTE NUMBER\s*-\s*(\d+)/);
+if(sm&&sm[1])window.open('https://serko.corporatetraveller.com.au/Web/Booking/Detail/'+sm[1],'_blank');
+else alert('Quote number not found!');break;
 case 'masquerade':
-var mmatch=document.body.innerText.match(/U62-([A-F0-9-]+)/i);
-if(mmatch&&mmatch[1])window.open('https://agentport.fcm.travel/SamlService/AgentToClientSsoTraveler/'+mmatch[1],'_blank');
-else alert('Agentport or YourCT profile not found.');
-break;
+var ym=document.body.innerText.match(/U62-([A-F0-9-]+)/i);
+if(ym&&ym[1])window.open('https://agentport.fcm.travel/SamlService/AgentToClientSsoTraveler/'+ym[1],'_blank');
+else alert('YourCT profile not found.');break;
+case 'viewAgentportProfile':
+var apm=document.body.innerText.match(/U62-([A-F0-9-]+)/i);
+if(apm&&apm[1])window.open('https://agentport.fcm.travel/Traveler/Edit/'+apm[1],'_blank');
+else alert('Agentport profile ID (U62) not found in PNR.');break;
+case 'viewAgentportCompany':
+var acm=document.body.innerText.match(/U64-([A-F0-9-]+)/i);
+if(acm&&acm[1])window.open('https://agentport.fcm.travel/ClientCenter/ProfileOverview/'+acm[1],'_blank');
+else alert('Agentport company ID (U64) not found in PNR.');break;
 case 'updateTTL':
-executeSabreCommand('7TAW/'+todayDDMON(),null);showToast('✓ TTL command sent');closeAllPopups();
-break;
+executeSabreCommand('7TAW/'+todayDDMON(),null);showToast('✓ TTL command sent');closeAllPopups();break;
 case 'queueSerko':
-executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();
-break;
+executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
+case 'missedTTL':
+executeMissedTTL();break;
 }
 }
 
-// ── Keyboard shortcut listener ────────────────────────────────────────────────
+// ── Keyboard listener ─────────────────────────────────────────────────────────
 document.addEventListener('keydown',function(e){
-if(!document.getElementById('ctToolbar'))return;
-// Don't fire if agent is typing in the Sabre command input
+if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
 if(document.activeElement&&document.activeElement.matches('input,textarea,select'))return;
+if(!e.altKey)return;
 SHORTCUTS.forEach(function(s){
-if(e.altKey&&e.key.toUpperCase()===s[0]){
-e.preventDefault();
-handleAction(s[3],null);
-}
+if(e.key.toUpperCase()===s[0]){e.preventDefault();handleAction(s[3],null);}
 });
 });
 
-// ── Update everything ─────────────────────────────────────────────────────────
+// ── Update all ────────────────────────────────────────────────────────────────
 function updateAll(){
 var tb=document.getElementById('ctToolbar');
-if(tb){
-tb.innerHTML=buildToolbarHTML(currentBookingInfo);
-attachToolbarHandlers();
-}
+if(tb){tb.innerHTML=buildToolbarHTML(currentBookingInfo);attachToolbarHandlers();}
 syncNotesBanner(currentBookingInfo);
 }
 
@@ -617,20 +618,32 @@ closeAllPopups();
 var banner=document.getElementById('ctNotesBanner');if(banner)banner.remove();
 var tb=document.getElementById('ctToolbar');
 if(tb){
-tb.style.opacity='0';tb.style.transform='scale(0.8)';
-setTimeout(function(){
-tb.remove();
-createCollapsedIcon();
-},180);
+tb.style.opacity='0';tb.style.transform='scale(0.85) translateY(4px)';
+setTimeout(function(){tb.remove();createCollapsedPill();},180);
 }
 }
 
-function createCollapsedIcon(){
+function createCollapsedPill(){
+var info=currentBookingInfo;
+var traveller=info.traveller||cachedTraveler||'';
+var company=info.company||'';
+var hasNotes=info.notes&&info.notes.length>0;
+var borderColor=approvalBorderColor(info.approved);
+
 var icon=document.createElement('div');
 icon.id='ctToolbarIcon';
-var hasNotes=currentBookingInfo&&currentBookingInfo.notes&&currentBookingInfo.notes.length>0;
-icon.innerHTML='<span>✈</span>'+(hasNotes?'<span class="ct-icon-notes-dot">'+currentBookingInfo.notes.length+'</span>':'');
-icon.title='CT Sabre Shortcuts'+(hasNotes?' — '+currentBookingInfo.notes.length+' note(s) to agent':'');
+icon.title='CT Sabre Shortcuts — click to expand';
+icon.innerHTML=
+'<div class="ct-collapsed-inner" style="border-left:4px solid '+borderColor+';">'
++(hasNotes?'<div class="ct-collapsed-notes-bar">⚠️ '+info.notes.length+' note'+(info.notes.length>1?'s':'')+' to agent</div>':'')
++'<div class="ct-collapsed-body">'
++'<span class="ct-collapsed-plane">✈</span>'
++'<div class="ct-collapsed-names">'
++(company?'<div class="ct-collapsed-company">'+trunc(company,20)+'</div>':'')
++(traveller?'<div class="ct-collapsed-traveller">'+trunc(traveller,20)+'</div>':'<div class="ct-collapsed-traveller ct-dim">No booking</div>')
++'</div>'
++'</div>'
++'</div>';
 icon.addEventListener('click',expandToolbar);
 document.body.appendChild(icon);
 }
@@ -644,32 +657,31 @@ tb.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(tb);
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
-// Reposition banner after toolbar renders
 setTimeout(repositionBanner,50);
 }
 
-// ── Toolbar button handlers ───────────────────────────────────────────────────
+// ── Toolbar handlers + drag ───────────────────────────────────────────────────
 function attachToolbarHandlers(){
-var tb=document.getElementById('ctToolbar');
-if(!tb)return;
+var tb=document.getElementById('ctToolbar');if(!tb)return;
 
-document.getElementById('ctBtnCopy')&&document.getElementById('ctBtnCopy').addEventListener('click',function(e){
-e.stopPropagation();showPopup('ctCopyPopup',buildCopyPopupHTML(currentBookingInfo),this);
+function btn(id,popupId,buildFn){
+var el=document.getElementById(id);
+if(el)el.addEventListener('click',function(e){
+e.stopPropagation();showPopup(popupId,buildFn(currentBookingInfo),this);
 });
-document.getElementById('ctBtnActions')&&document.getElementById('ctBtnActions').addEventListener('click',function(e){
-e.stopPropagation();showPopup('ctActionsPopup',buildActionsPopupHTML(currentBookingInfo),this);
-});
-document.getElementById('ctBtnTicket')&&document.getElementById('ctBtnTicket').addEventListener('click',function(e){
-e.stopPropagation();showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),this);
-});
-document.getElementById('ctBtnShortcuts')&&document.getElementById('ctBtnShortcuts').addEventListener('click',function(e){
+}
+btn('ctBtnCopy','ctCopyPopup',buildCopyPopupHTML);
+btn('ctBtnActions','ctActionsPopup',buildActionsPopupHTML);
+btn('ctBtnTicket','ctTicketPanel',buildTicketPanelHTML);
+
+var bs=document.getElementById('ctBtnShortcuts');
+if(bs)bs.addEventListener('click',function(e){
 e.stopPropagation();showPopup('ctShortcutsPopup',buildShortcutsPopupHTML(),this);
 });
-document.getElementById('ctBtnCollapse')&&document.getElementById('ctBtnCollapse').addEventListener('click',function(e){
-e.stopPropagation();collapseToolbar();
-});
+var bc=document.getElementById('ctBtnCollapse');
+if(bc)bc.addEventListener('click',function(e){e.stopPropagation();collapseToolbar();});
 
-// Drag on name area
+// Drag from name area
 var isDragging=false,startX,startY,origRight,origBottom;
 var nameArea=tb.querySelector('.ct-name-area');
 if(nameArea){
@@ -682,72 +694,91 @@ e.preventDefault();
 }
 document.addEventListener('mousemove',function(e){
 if(!isDragging)return;
-var dx=e.clientX-startX;var dy=e.clientY-startY;
 var tbEl=document.getElementById('ctToolbar');
 if(tbEl){
-var nr=origRight-dx;var nb=origBottom-dy;
-tbEl.style.right=nr+'px';tbEl.style.bottom=nb+'px';
+tbEl.style.right=(origRight-(e.clientX-startX))+'px';
+tbEl.style.bottom=(origBottom-(e.clientY-startY))+'px';
 repositionBanner();
 }
 });
 document.addEventListener('mouseup',function(){isDragging=false;});
 }
 
+// ── Ticket commands ───────────────────────────────────────────────────────────
+function executeViewEticket(ticketNo,ticketType){
+cachedTicketContext={ticketNo:ticketNo,pnr:cachedPNR,traveler:cachedTraveler,type:ticketType};
+if(ticketsInView.length>1)cameFromTicketList=true;
+if(ticketType==='ndc'||ticketType==='ndc-emd'){
+alert('NDC ticket — view graphically in Ticketing tab. Context cached for refund.');return;
+}
+executeSabreCommand((ticketType==='emd'?'WEMD*T':'WETR*T')+ticketNo.replace(/[\/-].*$/,''),'eticket');
+}
+
+function updateMethod(lineNumber,newMethod){
+var ci=document.querySelector('input.command-line-input[name="cmdln"]');
+var sb=document.querySelector('button.send-button');
+if(!ci||!sb){alert('Could not find command input');return;}
+ci.value='5'+lineNumber+'¤L¥METHOD-'+newMethod;ci.focus();
+ci.dispatchEvent(new Event('input',{bubbles:true}));
+setTimeout(function(){sb.click();setTimeout(function(){showToast('✅ Method updated — save PNR');},600);},100);
+}
+
+function showSavePNRMessage(msg){
+var m=document.createElement('div');m.className='save-pnr-message';
+m.textContent=msg||'⚠️ Please save your PNR';
+document.body.appendChild(m);setTimeout(function(){m.remove();},4000);
+}
+
 // ── Observer ──────────────────────────────────────────────────────────────────
 var observer=new MutationObserver(function(){
 if(pendingCommandPoll)return;
-var newInfo=extractBookingInfo();
-if(newInfo.pnr&&newInfo.pnr.length===6)cachedPNR=newInfo.pnr;
-if(newInfo.traveller&&newInfo.traveller.trim()!=='')cachedTraveler=newInfo.traveller;
-var newView=newInfo.hasEticket?'eticket':(newInfo.tickets.length>0?'list':'default');
-if(newInfo.pnr&&newInfo.pnr!==lastKnownPNR){
-lastKnownPNR=newInfo.pnr;currentBookingInfo=newInfo;currentTicketView=newView;
+var ni=extractBookingInfo();
+if(ni.pnr&&ni.pnr.length===6)cachedPNR=ni.pnr;
+if(ni.traveller&&ni.traveller.trim()!=='')cachedTraveler=ni.traveller;
+var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
+if(ni.pnr&&ni.pnr!==lastKnownPNR){
+lastKnownPNR=ni.pnr;currentBookingInfo=ni;currentTicketView=nv;
 cameFromTicketList=false;cachedTicketContext=null;notesExpanded=false;
 closeAllPopups();updateAll();
-}else if(newView!==currentTicketView){
-currentBookingInfo=newInfo;currentTicketView=newView;updateAll();
+}else if(nv!==currentTicketView){
+currentBookingInfo=ni;currentTicketView=nv;updateAll();
 }else{
-// Still update notes banner even if view/pnr unchanged (notes may have changed)
-syncNotesBanner(newInfo);
+currentBookingInfo=ni;syncNotesBanner(ni);
 }
 });
-var responseArea=document.querySelector('.area-out');
-if(responseArea)observer.observe(responseArea,{childList:true,subtree:true,characterData:true});
+var ra=document.querySelector('.area-out');
+if(ra)observer.observe(ra,{childList:true,subtree:true,characterData:true});
 
-// Close popups on outside click
 document.addEventListener('click',function(e){
 if(!openPopup)return;
 var popup=document.getElementById(openPopup);
 var tb=document.getElementById('ctToolbar');
-if(popup&&!popup.contains(e.target)&&(!tb||!tb.contains(e.target))){
-closeAllPopups();
-}
+if(popup&&!popup.contains(e.target)&&(!tb||!tb.contains(e.target)))closeAllPopups();
 },{capture:true});
 
-// ── Clipboard helpers ─────────────────────────────────────────────────────────
-async function writeRichClipboard(htmlText,plainText){
+// ── Clipboard ─────────────────────────────────────────────────────────────────
+async function writeRichClipboard(h,p){
 try{
 await navigator.clipboard.write([new ClipboardItem({
-'text/html':new Blob([htmlText],{type:'text/html'}),
-'text/plain':new Blob([plainText.trim()],{type:'text/plain'})
+'text/html':new Blob([h],{type:'text/html'}),
+'text/plain':new Blob([p.trim()],{type:'text/plain'})
 })]);
 }catch(err){
-var temp=document.createElement('textarea');temp.value=plainText.trim();
-document.body.appendChild(temp);temp.select();document.execCommand('copy');document.body.removeChild(temp);
+var t=document.createElement('textarea');t.value=p.trim();
+document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);
 }
 }
 
 function buildEmailTable(title,rows){
-var rowsHTML=rows.map(function(r,i){
-var bg=i%2===0?'white':'#fafafa';
-return '<tr style="background:'+bg+';">'
+var rh=rows.map(function(r,i){
+return '<tr style="background:'+(i%2===0?'white':'#fafafa')+';">'
 +'<td style="padding:5px 12px;color:#888;font-size:11px;white-space:nowrap;border-right:1px solid #f0f0f0;">'+r[0]+'</td>'
 +'<td style="padding:5px 12px;font-size:11px;color:#222;'+(r[2]?'font-family:monospace;':'')+'">'+r[1]+'</td>'
 +'</tr>';
 }).join('');
 return '<table style="border-collapse:collapse;border:1px solid #e0e0e0;font-family:Arial,sans-serif;min-width:280px;">'
 +'<thead><tr><td colspan="2" style="background:#ff2e5f;color:white;font-weight:700;font-size:11px;padding:8px 12px;letter-spacing:0.5px;">'+title+'</td></tr></thead>'
-+'<tbody>'+rowsHTML+'</tbody></table>';
++'<tbody>'+rh+'</tbody></table>';
 }
 
 async function copyBookingInfoRich(){
@@ -758,232 +789,172 @@ if(pnr)rows.push(['GDS Reference',pnr,true]);
 if(currentBookingInfo.luminaId)rows.push(['CT Booking Number',currentBookingInfo.luminaId,true]);
 if(traveller)rows.push(['Traveller',traveller,false]);
 if(!rows.length)return;
-var plain=rows.map(function(r){return r[0]+': '+r[1];}).join('\n');
-await writeRichClipboard(buildEmailTable('BOOKING REFERENCE',rows),plain);
+await writeRichClipboard(buildEmailTable('BOOKING REFERENCE',rows),rows.map(function(r){return r[0]+': '+r[1];}).join('\n'));
 }
 
 async function copyContactDetailsRich(){
 var fullName=currentBookingInfo.traveller||cachedTraveler||'Not Found';
-var rows=[
-['Name',fullName,false],
-['Mobile',currentBookingInfo.phone||'Not Found',false],
-['Email',currentBookingInfo.email||'Not Found',false]
-];
-var plain=rows.map(function(r){return r[0]+': '+r[1];}).join('\n');
-await writeRichClipboard(buildEmailTable('PASSENGER CONTACT',rows),plain);
+var rows=[['Name',fullName,false],['Mobile',currentBookingInfo.phone||'Not Found',false],['Email',currentBookingInfo.email||'Not Found',false]];
+await writeRichClipboard(buildEmailTable('PASSENGER CONTACT',rows),rows.map(function(r){return r[0]+': '+r[1];}).join('\n'));
 }
 
 async function copyAllTicketInfo(){
-var displayTicket,displayName,displayPNR;
-if(currentBookingInfo.ticketInfo.ticketNo){
-displayTicket=currentBookingInfo.ticketInfo.ticketNo;displayName=currentBookingInfo.ticketInfo.paxName;displayPNR=currentBookingInfo.ticketInfo.pnr;
-}else if(cachedTicketContext){
-displayTicket=cachedTicketContext.ticketNo;displayName=cachedTicketContext.traveler;displayPNR=cachedTicketContext.pnr;
-}else{displayTicket='Not Found';displayName=cachedTraveler||'Not Found';displayPNR=cachedPNR||'TBA';}
-var rows=[['Ticket No',displayTicket,true],['Passenger',displayName,false],['PNR',displayPNR,true]];
+var dt,dn,dp;
+if(currentBookingInfo.ticketInfo.ticketNo){dt=currentBookingInfo.ticketInfo.ticketNo;dn=currentBookingInfo.ticketInfo.paxName;dp=currentBookingInfo.ticketInfo.pnr;}
+else if(cachedTicketContext){dt=cachedTicketContext.ticketNo;dn=cachedTicketContext.traveler;dp=cachedTicketContext.pnr;}
+else{dt='Not Found';dn=cachedTraveler||'Not Found';dp=cachedPNR||'TBA';}
+var rows=[['Ticket No',dt,true],['Passenger',dn,false],['PNR',dp,true]];
 await writeRichClipboard(buildEmailTable('TICKET DETAILS',rows),rows.map(function(r){return r[0]+': '+r[1];}).join('\n'));
 }
 
 async function copyRefundData(){
-var displayTicket,displayName,displayPNR;
-if(currentBookingInfo.ticketInfo.ticketNo){
-displayTicket=currentBookingInfo.ticketInfo.ticketNo;displayName=currentBookingInfo.ticketInfo.paxName;displayPNR=currentBookingInfo.ticketInfo.pnr;
-}else if(cachedTicketContext){
-displayTicket=cachedTicketContext.ticketNo;displayName=cachedTicketContext.traveler;displayPNR=cachedTicketContext.pnr;
-}else{displayTicket='Not Found';displayName=cachedTraveler||'Not Found';displayPNR=cachedPNR||'TBA';}
+var dt,dn,dp;
+if(currentBookingInfo.ticketInfo.ticketNo){dt=currentBookingInfo.ticketInfo.ticketNo;dn=currentBookingInfo.ticketInfo.paxName;dp=currentBookingInfo.ticketInfo.pnr;}
+else if(cachedTicketContext){dt=cachedTicketContext.ticketNo;dn=cachedTicketContext.traveler;dp=cachedTicketContext.pnr;}
+else{dt='Not Found';dn=cachedTraveler||'Not Found';dp=cachedPNR||'TBA';}
 try{
-await navigator.clipboard.writeText('##SABRE_REFUND##\nTICKET: '+displayTicket+'\nNAME: '+displayName+'\nPNR: '+displayPNR+'\n');
+await navigator.clipboard.writeText('##SABRE_REFUND##\nTICKET: '+dt+'\nNAME: '+dn+'\nPNR: '+dp+'\n');
 window.open('https://auoasisservices.au.fcl.internal/OasisWeb/RefundApplication/Create','_blank');
 }catch(err){alert('Could not copy refund data to clipboard');}
-}
-
-// ── Ticket commands ───────────────────────────────────────────────────────────
-function executeViewEticket(ticketNo,ticketType){
-cachedTicketContext={ticketNo:ticketNo,pnr:cachedPNR,traveler:cachedTraveler,type:ticketType};
-if(ticketsInView.length>1)cameFromTicketList=true;
-if(ticketType==='ndc'||ticketType==='ndc-emd'){
-alert('NDC ticket — view graphically in Ticketing tab. Context cached for refund.');return;
-}
-var cleanTicketNo=ticketNo.replace(/[\/-].*$/,'');
-executeSabreCommand((ticketType==='emd'?'WEMD*T':'WETR*T')+cleanTicketNo,'eticket');
-}
-
-function executeViewTicketsCommand(){
-if(currentBookingInfo.pnr&&currentBookingInfo.pnr.length===6)cachedPNR=currentBookingInfo.pnr;
-if(currentBookingInfo.traveller)cachedTraveler=currentBookingInfo.traveller;
-executeSabreCommand('*T','list');
-}
-
-function updateMethod(lineNumber,newMethod){
-var cmdInput=document.querySelector('input.command-line-input[name="cmdln"]');
-var sendButton=document.querySelector('button.send-button');
-if(!cmdInput||!sendButton){alert('Could not find command input or send button');return;}
-cmdInput.value='5'+lineNumber+'¤L¥METHOD-'+newMethod;cmdInput.focus();
-cmdInput.dispatchEvent(new Event('input',{bubbles:true}));
-setTimeout(function(){sendButton.click();setTimeout(function(){showToast('✅ Method updated — save PNR');},600);},100);
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 var style=document.createElement('style');
 style.textContent=
-// Toolbar
-'#ctToolbar{'
-+'position:fixed;bottom:20px;right:20px;z-index:999999;'
-+'font-family:Aptos,Arial,sans-serif;'
-+'transition:opacity 0.18s,transform 0.18s;'
-+'animation:ctPopIn 0.2s ease-out;}'
-+'@keyframes ctPopIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}'
+'#ctToolbar{position:fixed;bottom:20px;right:20px;z-index:999999;font-family:Aptos,Arial,sans-serif;'
++'transition:opacity 0.18s,transform 0.18s;animation:ctPopIn 0.2s ease-out;}'
++'@keyframes ctPopIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}'
 
 +'#ctToolbarInner{'
 +'display:flex;align-items:stretch;'
-+'background:linear-gradient(135deg,#c4103a 0%,#ff2e5f 60%,#d41a4a 100%);'
-+'border-radius:28px;'
-+'box-shadow:0 6px 22px rgba(0,0,0,0.4);'
-+'border-left:4px solid #28a745;'
-+'overflow:hidden;'
-+'min-height:44px;}'  // roomier than before
++'background:white;'
++'border-radius:12px;'
++'box-shadow:0 4px 20px rgba(0,0,0,0.18),0 1px 4px rgba(0,0,0,0.08);'
++'border:1.5px solid #f0d0d8;'
++'border-left:4px solid #ff2e5f;'  // overridden inline by approval colour
++'overflow:hidden;min-height:48px;}'
 
 // Name / drag area
 +'.ct-name-area{'
 +'display:flex;align-items:center;gap:8px;'
-+'padding:8px 14px 8px 12px;'
++'padding:8px 12px 8px 10px;'
 +'cursor:move;user-select:none;'
-+'border-right:1px solid rgba(255,255,255,0.18);'
-+'min-width:0;max-width:220px;}'
-+'.ct-plane{font-size:15px;flex-shrink:0;line-height:1;}'
-+'.ct-name-block{display:flex;flex-direction:column;gap:3px;min-width:0;}'
-+'.ct-traveller{font-size:11.5px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}'
-+'.ct-dim{opacity:0.55;font-weight:400;}'
-+'.ct-chip-row{display:flex;}'
-
-// Approval chips
-+'.ct-chip{font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}'
++'border-right:1px solid #f0d0d8;'
++'min-width:0;}'
++'.ct-name-block{display:flex;flex-direction:column;gap:2px;min-width:0;}'
++'.ct-company{font-size:9px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-traveller{font-size:11px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-dim{opacity:0.45;font-weight:400;}'
++'.ct-chip-row{display:flex;margin-top:2px;}'
++'.ct-chip{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}'
 +'.ct-chip-approved{background:#d4edda;color:#155724;}'
 +'.ct-chip-pending{background:#fff3cd;color:#856404;}'
 +'.ct-chip-cancellation{background:#ffebee;color:#c62828;}'
-+'.ct-chip-rejected{background:#ff0000;color:white;}'
++'.ct-chip-rejected{background:#ff3333;color:white;}'
 
-// Icon buttons
-+'.ct-icon-btns{display:flex;align-items:center;}'
-+'.ct-icon-btn{'
-+'background:none;border:none;color:white;'
-+'font-size:16px;cursor:pointer;'
-+'min-width:38px;height:100%;'
-+'display:flex;align-items:center;justify-content:center;'
-+'position:relative;padding:0 6px;'
-+'transition:background 0.15s;font-family:inherit;}'
-+'.ct-icon-btn:hover{background:rgba(255,255,255,0.15);}'
-+'.ct-shortcuts-btn{font-size:13px;font-weight:800;opacity:0.85;}'
-+'.ct-shortcuts-btn:hover{opacity:1;}'
-+'.ct-collapse-btn{font-size:20px;opacity:0.7;border-left:1px solid rgba(255,255,255,0.18);min-width:34px;}'
-+'.ct-collapse-btn:hover{opacity:1;background:rgba(0,0,0,0.2);}'
+// Button group — clearly labelled, distinctly coloured
++'.ct-btn-group{display:flex;align-items:center;gap:0;}'
 
-// Orange notes dot on ⚡ button
-+'.ct-notes-dot{'
-+'position:absolute;top:6px;right:4px;'
-+'background:#ff9800;color:white;'
-+'font-size:8px;font-weight:800;'
-+'min-width:14px;height:14px;border-radius:7px;'
-+'display:flex;align-items:center;justify-content:center;'
-+'padding:0 3px;border:1.5px solid #ff2e5f;line-height:1;}'
-
-// Collapsed icon bubble
-+'#ctToolbarIcon{'
-+'position:fixed;bottom:20px;right:20px;'
-+'width:52px;height:52px;'
-+'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);'
-+'border-radius:50%;'
-+'box-shadow:0 4px 18px rgba(0,0,0,0.35);'
-+'z-index:999999;display:flex;align-items:center;justify-content:center;'
-+'cursor:pointer;position:fixed;'
-+'animation:ctPopIn 0.2s ease-out;}'
-+'#ctToolbarIcon:hover{transform:scale(1.08);}'
-+'#ctToolbarIcon span:first-child{font-size:24px;}'
-+'.ct-icon-notes-dot{'
-+'position:absolute;top:2px;right:2px;'
-+'background:#ff9800;color:white;font-size:8px;font-weight:800;'
-+'min-width:15px;height:15px;border-radius:8px;'
-+'display:flex;align-items:center;justify-content:center;'
-+'padding:0 3px;border:2px solid white;line-height:1;}'
-
-// Notes banner — floats above toolbar, 300px wide
-+'#ctNotesBanner{'
-+'position:fixed;z-index:999998;'
-+'width:300px;'
-+'background:#fffbf0;'
-+'border:1px solid #ffcc80;'
-+'border-left:4px solid #ff9800;'
-+'border-radius:10px;'
-+'box-shadow:0 4px 16px rgba(0,0,0,0.18);'
++'.ct-tb-btn{'
++'border:none;cursor:pointer;'
 +'font-family:Aptos,Arial,sans-serif;'
-+'cursor:pointer;'
-+'overflow:hidden;'
++'font-size:10.5px;font-weight:700;'
++'height:100%;min-height:48px;'
++'padding:0 11px;'
++'display:flex;align-items:center;gap:5px;'
++'white-space:nowrap;'
++'transition:background 0.15s,color 0.15s;'
++'border-left:1px solid #f0d0d8;}'
+
+// Each button a subtly different tint so they're visually distinct
++'.ct-btn-copy{background:#fff0f4;color:#cc1a45;}'
++'.ct-btn-copy:hover{background:#ff2e5f;color:white;}'
++'.ct-btn-ticket{background:#fff8e6;color:#b36b00;}'
++'.ct-btn-ticket:hover{background:#ff9800;color:white;}'
++'.ct-btn-actions{background:#f0f7ff;color:#1a5fcc;position:relative;}'
++'.ct-btn-actions:hover{background:#1a5fcc;color:white;}'
++'.ct-btn-shortcuts{background:#f5f5f5;color:#555;font-size:14px;padding:0 10px;}'
++'.ct-btn-shortcuts:hover{background:#555;color:white;}'
++'.ct-btn-collapse{background:#f5f5f5;color:#999;font-size:18px;padding:0 10px;}'
++'.ct-btn-collapse:hover{background:#eee;color:#555;}'
+
+// Notes dot on Actions button
++'.ct-notes-dot{'
++'position:absolute;top:7px;right:5px;'
++'background:#ff9800;color:white;font-size:7.5px;font-weight:800;'
++'min-width:13px;height:13px;border-radius:7px;'
++'display:flex;align-items:center;justify-content:center;'
++'padding:0 2px;border:1.5px solid white;line-height:1;}'
+
+// Collapsed pill — wider, two-line stacked
++'#ctToolbarIcon{'
++'position:fixed;bottom:20px;right:20px;z-index:999999;'
++'cursor:pointer;animation:ctPopIn 0.2s ease-out;}'
++'#ctToolbarIcon:hover .ct-collapsed-inner{box-shadow:0 6px 24px rgba(0,0,0,0.22);}'
++'.ct-collapsed-inner{'
++'background:white;'
++'border-radius:12px;'
++'border:1.5px solid #f0d0d8;'
++'border-left:4px solid #ff2e5f;'
++'box-shadow:0 4px 16px rgba(0,0,0,0.15);'
++'overflow:hidden;min-width:160px;max-width:200px;}'
++'.ct-collapsed-notes-bar{'
++'background:#fff3e0;border-bottom:1px solid #ffcc80;'
++'padding:4px 10px;font-size:9px;font-weight:700;color:#e65100;}'
++'.ct-collapsed-body{'
++'display:flex;align-items:center;gap:8px;padding:8px 10px;}'
++'.ct-collapsed-plane{font-size:16px;flex-shrink:0;}'
++'.ct-collapsed-names{display:flex;flex-direction:column;gap:2px;min-width:0;}'
++'.ct-collapsed-company{font-size:8.5px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-collapsed-traveller{font-size:10.5px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+
+// Notes banner
++'#ctNotesBanner{'
++'position:fixed;z-index:999998;width:300px;'
++'background:#fffbf0;border:1px solid #ffcc80;border-left:4px solid #ff9800;'
++'border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.15);'
++'font-family:Aptos,Arial,sans-serif;cursor:pointer;overflow:hidden;'
 +'animation:ctPopIn 0.2s ease-out;}'
-+'.ct-banner-header{'
-+'display:flex;align-items:center;gap:8px;'
-+'padding:9px 12px;'
-+'background:#fff3e0;}'
++'.ct-banner-header{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fff3e0;}'
 +'.ct-banner-icon{font-size:14px;flex-shrink:0;}'
 +'.ct-banner-title{font-size:11px;font-weight:700;color:#e65100;flex:1;}'
 +'.ct-banner-toggle{font-size:12px;color:#e65100;flex-shrink:0;}'
-+'.ct-banner-notes{'
-+'padding:8px 12px 10px;'
-+'border-top:1px solid #ffcc80;}'
-+'.ct-banner-note-line{'
-+'font-size:10.5px;line-height:1.6;color:#333;'
-+'padding:3px 0;'
-+'word-break:break-word;white-space:pre-wrap;'
-+'border-bottom:1px dotted rgba(255,152,0,0.3);}'
++'.ct-banner-notes{padding:8px 12px 10px;border-top:1px solid #ffcc80;}'
++'.ct-banner-note-line{font-size:10.5px;line-height:1.6;color:#333;padding:3px 0;word-break:break-word;white-space:pre-wrap;border-bottom:1px dotted rgba(255,152,0,0.3);}'
 +'.ct-banner-note-line:last-child{border-bottom:none;}'
 
 // Popup
-+'.ct-popup{'
-+'position:fixed;z-index:1000001;'
-+'width:220px;'
-+'background:white;'
-+'border-radius:10px;'
-+'box-shadow:0 8px 28px rgba(0,0,0,0.22);'
-+'border:1px solid #f0e0e5;'
-+'padding:8px;'
-+'opacity:0;transform:translateY(6px);'
-+'transition:opacity 0.15s ease,transform 0.15s ease;}'
-+'.ct-popup-section-label{'
-+'font-size:8px;font-weight:800;color:#ff2e5f;'
-+'text-transform:uppercase;letter-spacing:0.6px;'
-+'padding:4px 6px;margin-top:2px;}'
-+'.ct-popup-btn{'
-+'display:block;width:100%;text-align:left;'
-+'padding:7px 10px;margin:2px 0;'
-+'background:#fff8fa;color:#222;'
-+'border:1px solid #f0e0e5;border-radius:6px;'
-+'font-size:10.5px;font-weight:500;cursor:pointer;'
-+'font-family:Aptos,Arial,sans-serif;'
++'.ct-popup{position:fixed;z-index:1000001;width:230px;background:white;'
++'border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.2);border:1.5px solid #f0d0d8;'
++'padding:8px;opacity:0;transform:translateY(6px);transition:opacity 0.15s ease,transform 0.15s ease;}'
++'.ct-popup-label{font-size:8px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.6px;padding:5px 6px 3px;}'
++'.ct-popup-btn{display:block;width:100%;text-align:left;padding:7px 10px;margin:2px 0;'
++'background:#fff8fa;color:#222;border:1px solid #f0d0d8;border-radius:6px;'
++'font-size:10.5px;font-weight:500;cursor:pointer;font-family:Aptos,Arial,sans-serif;'
 +'transition:background 0.12s,color 0.12s;}'
-+'.ct-popup-btn:hover{background:#ffe0ea;color:#ff2e5f;border-color:#ffb3c6;}'
-+'.ct-highlight-btn{background:#fff3cd;border-color:#ffd700;font-weight:600;}'
-+'.ct-highlight-btn:hover{background:#ffe066;color:#333;}'
-+'.ct-popup-divider{height:1px;background:#f0e0e5;margin:6px 0;}'
++'.ct-popup-btn:hover{background:#ff2e5f;color:white;border-color:#ff2e5f;}'
++'.ct-hl-btn{background:#fff3cd;border-color:#ffd700;font-weight:600;}'
++'.ct-hl-btn:hover{background:#ff2e5f;color:white;border-color:#ff2e5f;}'
++'.ct-missed-ttl-btn{background:#ffebee;border-color:#ef9a9a;color:#b71c1c;font-weight:600;}'
++'.ct-missed-ttl-btn:hover{background:#ff2e5f;color:white;border-color:#ff2e5f;}'
++'.ct-popup-divider{height:1px;background:#f0d0d8;margin:6px 0;}'
 +'.ct-ticket-note{font-size:8px;color:#999;font-style:italic;text-align:center;padding:4px 0;}'
-+'.ct-ticket-btn-row{display:flex;gap:4px;margin:4px 0;}'
-+'.ct-ticket-btn-row .ct-popup-btn{flex:1;text-align:center;padding:7px 2px;font-size:9.5px;}'
++'.ct-tkt-row{display:flex;gap:4px;margin:4px 0;}'
++'.ct-tkt-row .ct-popup-btn{flex:1;text-align:center;padding:7px 2px;font-size:9.5px;}'
 +'.ndc-label{background:#ff2e5f;color:white;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:5px;}'
 +'.emd-label{background:#ffc107;color:#333;padding:2px 5px;border-radius:3px;font-size:8px;font-weight:bold;margin-left:5px;}'
-+'.ct-method-select{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #f0e0e5;font-size:10.5px;background:white;cursor:pointer;font-family:Aptos,Arial,sans-serif;margin-top:4px;}'
++'.ct-method-select{width:100%;padding:6px 8px;border-radius:5px;border:1px solid #f0d0d8;font-size:10.5px;background:white;cursor:pointer;font-family:Aptos,Arial,sans-serif;margin-top:4px;}'
 +'.ct-method-select:hover{border-color:#ff2e5f;}'
-
-// Keyboard shortcut table
-+'.ct-shortcuts-table{width:100%;border-collapse:collapse;margin-top:4px;}'
-+'.ct-shortcuts-table tr:hover{background:#fff0f4;}'
-+'.ct-shortcuts-table td{padding:5px 6px;font-size:10px;color:#333;}'
-+'.ct-shortcuts-table td:first-child{white-space:nowrap;padding-right:10px;}'
-+'kbd{background:#f0f0f0;border:1px solid #ccc;border-radius:3px;'
-+'padding:1px 5px;font-size:9px;font-family:monospace;color:#333;}'
-
-// Toast
++'.ct-sc-table{width:100%;border-collapse:collapse;margin-top:4px;}'
++'.ct-sc-table tr:hover{background:#fff0f4;}'
++'.ct-sc-table td{padding:5px 6px;font-size:10px;color:#333;}'
++'.ct-sc-table td:first-child{white-space:nowrap;padding-right:10px;}'
++'kbd{background:#f5f5f5;border:1px solid #ddd;border-radius:3px;padding:1px 5px;font-size:9px;font-family:monospace;color:#444;}'
 +'.save-pnr-message{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
-+'background:#28a745;color:white;padding:15px 30px;border-radius:8px;z-index:1000003;'
-+'font-size:14px;font-weight:bold;box-shadow:0 4px 20px rgba(0,0,0,0.3);animation:ctFadeOut 3s forwards;}'
-+'@keyframes ctFadeOut{0%{opacity:1}70%{opacity:1}100%{opacity:0}}';
++'background:#1a5fcc;color:white;padding:16px 28px;border-radius:10px;z-index:1000003;'
++'font-size:13px;font-weight:bold;box-shadow:0 4px 20px rgba(0,0,0,0.3);'
++'text-align:center;max-width:300px;line-height:1.5;animation:ctFadeOut 4s forwards;}'
++'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}';
 
 document.head.appendChild(style);
 
