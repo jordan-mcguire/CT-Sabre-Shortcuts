@@ -851,10 +851,10 @@ style.textContent=
 +'.ct-dim{opacity:0.6;font-weight:400;}'
 +'.ct-chip-row{display:flex;margin-top:3px;}'
 +'.ct-chip{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}'
-+'.ct-chip-approved{background:rgba(255,255,255,0.25);color:white;}'
-+'.ct-chip-pending{background:rgba(255,255,255,0.2);color:white;}'
-+'.ct-chip-cancellation{background:rgba(0,0,0,0.2);color:white;}'
-+'.ct-chip-rejected{background:rgba(0,0,0,0.35);color:white;}'
++'.ct-chip-approved{background:#d4edda;color:#155724;}'
++'.ct-chip-pending{background:#fff3cd;color:#856404;}'
++'.ct-chip-cancellation{background:#ffebee;color:#c62828;}'
++'.ct-chip-rejected{background:#ff0000;color:white;}'
 
 // Button group — clearly labelled, distinctly coloured
 +'.ct-btn-group{display:flex;align-items:center;gap:0;}'
