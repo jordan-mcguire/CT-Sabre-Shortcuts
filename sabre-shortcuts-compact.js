@@ -100,6 +100,9 @@ var SHORTCUTS=[
 ['A','Alt','View in Agentport (Profile)','viewAgentportProfile'],
 ['G','Alt','View in Agentport (Company)','viewAgentportCompany'],
 ['U','Alt','Copy Email Subject','copyEmailSubject'],
+['I','Alt','Update TTL','updateTTL'],       // Alt+I safe — no Chrome/Edge conflict
+['Q','Alt','Queue to Serko','queueSerko'],
+['X','Alt','Missed TTL (Mixed + TTL)','missedTTL'],
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -200,7 +203,7 @@ if(!methodLine){showToast('⚠️ No method line found');return;}
 executeSabreCommand('5'+methodLine+'¤L¥METHOD-M',null,function(){
 // Step 2: update TTL to today
 setTimeout(function(){
-executeSabreCommand('7TAW/'+todayDDMON(),null,function(){
+executeSabreCommand('7TAW'+todayDDMON()+'/',null,function(){
 // Prompt agent to save and re-download
 setTimeout(function(){
 showSavePNRMessage('💾 Save PNR then re-download to Lumina (LDD)');
@@ -421,9 +424,9 @@ h+='<button class="ct-popup-btn" data-action="masquerade">👤 View in YourCT <k
 h+='<button class="ct-popup-btn" data-action="viewAgentportProfile">🧑 Agentport (Profile) <kbd>Alt+A</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="viewAgentportCompany">🏢 Agentport (Company) <kbd>Alt+G</kbd></button>';
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">COMMANDS</div>';
-h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+')</button>';
-h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko</button>';
-h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL)</button>';
+h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+') <kbd>Alt+I</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
+h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
 h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
@@ -586,7 +589,7 @@ var acm=document.body.innerText.match(/U64-([A-F0-9-]+)/i);
 if(acm&&acm[1])window.open('https://agentport.fcm.travel/ClientCenter/ProfileOverview/'+acm[1],'_blank');
 else alert('Agentport company ID (U64) not found in PNR.');break;
 case 'updateTTL':
-executeSabreCommand('7TAW/'+todayDDMON(),null);showToast('✓ TTL command sent');closeAllPopups();break;
+executeSabreCommand('7TAW'+todayDDMON()+'/',null);showToast('✓ TTL command sent');closeAllPopups();break;
 case 'queueSerko':
 executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
 case 'missedTTL':
@@ -831,26 +834,27 @@ style.textContent=
 +'border-radius:12px;'
 +'box-shadow:0 4px 20px rgba(0,0,0,0.18),0 1px 4px rgba(0,0,0,0.08);'
 +'border:1.5px solid #f0d0d8;'
-+'border-left:4px solid #ff2e5f;'  // overridden inline by approval colour
++'border-left:4px solid #ff2e5f;'
 +'overflow:hidden;min-height:48px;}'
 
-// Name / drag area
+// Name / drag area — pink gradient background
 +'.ct-name-area{'
 +'display:flex;align-items:center;gap:8px;'
-+'padding:8px 12px 8px 10px;'
++'padding:8px 14px 8px 11px;'
 +'cursor:move;user-select:none;'
-+'border-right:1px solid #f0d0d8;'
++'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);'
++'border-right:2px solid rgba(255,255,255,0.25);'
 +'min-width:0;}'
 +'.ct-name-block{display:flex;flex-direction:column;gap:2px;min-width:0;}'
-+'.ct-company{font-size:9px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-+'.ct-traveller{font-size:11px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-+'.ct-dim{opacity:0.45;font-weight:400;}'
-+'.ct-chip-row{display:flex;margin-top:2px;}'
++'.ct-company{font-size:9px;font-weight:800;color:rgba(255,255,255,0.85);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-traveller{font-size:11px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-dim{opacity:0.6;font-weight:400;}'
++'.ct-chip-row{display:flex;margin-top:3px;}'
 +'.ct-chip{font-size:8.5px;font-weight:700;padding:2px 6px;border-radius:4px;white-space:nowrap;}'
-+'.ct-chip-approved{background:#d4edda;color:#155724;}'
-+'.ct-chip-pending{background:#fff3cd;color:#856404;}'
-+'.ct-chip-cancellation{background:#ffebee;color:#c62828;}'
-+'.ct-chip-rejected{background:#ff3333;color:white;}'
++'.ct-chip-approved{background:rgba(255,255,255,0.25);color:white;}'
++'.ct-chip-pending{background:rgba(255,255,255,0.2);color:white;}'
++'.ct-chip-cancellation{background:rgba(0,0,0,0.2);color:white;}'
++'.ct-chip-rejected{background:rgba(0,0,0,0.35);color:white;}'
 
 // Button group — clearly labelled, distinctly coloured
 +'.ct-btn-group{display:flex;align-items:center;gap:0;}'
@@ -897,16 +901,17 @@ style.textContent=
 +'border:1.5px solid #f0d0d8;'
 +'border-left:4px solid #ff2e5f;'
 +'box-shadow:0 4px 16px rgba(0,0,0,0.15);'
-+'overflow:hidden;min-width:160px;max-width:200px;}'
++'overflow:hidden;min-width:160px;max-width:210px;}'
 +'.ct-collapsed-notes-bar{'
 +'background:#fff3e0;border-bottom:1px solid #ffcc80;'
 +'padding:4px 10px;font-size:9px;font-weight:700;color:#e65100;}'
 +'.ct-collapsed-body{'
-+'display:flex;align-items:center;gap:8px;padding:8px 10px;}'
++'display:flex;align-items:center;gap:8px;padding:8px 12px;'
++'background:linear-gradient(135deg,#ff2e5f 0%,#ff6b9d 100%);}'
 +'.ct-collapsed-plane{font-size:16px;flex-shrink:0;}'
 +'.ct-collapsed-names{display:flex;flex-direction:column;gap:2px;min-width:0;}'
-+'.ct-collapsed-company{font-size:8.5px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
-+'.ct-collapsed-traveller{font-size:10.5px;font-weight:700;color:#222;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-collapsed-company{font-size:8.5px;font-weight:800;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:0.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
++'.ct-collapsed-traveller{font-size:10.5px;font-weight:700;color:white;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
 
 // Notes banner
 +'#ctNotesBanner{'
