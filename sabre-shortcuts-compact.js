@@ -724,33 +724,67 @@ m.textContent=msg||'⚠️ Please save your PNR';
 document.body.appendChild(m);setTimeout(function(){m.remove();},4000);
 }
 
-// ── Observer ──────────────────────────────────────────────────────────────────
-var observer=new MutationObserver(function(){
-if(pendingCommandPoll)return;
-var ni=extractBookingInfo();
+// ── Observer + heartbeat ──────────────────────────────────────────────────────
+// Dual approach: MutationObserver on the best available target, PLUS a
+// polling heartbeat every 500ms as a guaranteed fallback.
+// This ensures ticket list / e-ticket views are always caught regardless of
+// how Sabre updates the DOM.
+
+function handleViewChange(ni){
 if(ni.pnr&&ni.pnr.length===6)cachedPNR=ni.pnr;
 if(ni.traveller&&ni.traveller.trim()!=='')cachedTraveler=ni.traveller;
 var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
-if(ni.pnr&&ni.pnr!==lastKnownPNR){
+var pnrChanged=ni.pnr&&ni.pnr!==lastKnownPNR;
+var viewChanged=nv!==currentTicketView;
+
+if(pnrChanged){
 lastKnownPNR=ni.pnr;currentBookingInfo=ni;currentTicketView=nv;
 cameFromTicketList=false;cachedTicketContext=null;notesExpanded=false;
 closeAllPopups();updateAll();
-}else if(nv!==currentTicketView){
+}else if(viewChanged){
 currentBookingInfo=ni;currentTicketView=nv;updateAll();
-// Auto-open ticket panel when Sabre returns a ticket list or e-ticket,
-// whether triggered by a button or typed directly into the command line
-if(nv==='eticket'||nv==='list'){
-setTimeout(function(){
-var btn=document.getElementById('ctBtnTicket');
-if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
-},80);
-}
 }else{
 currentBookingInfo=ni;syncNotesBanner(ni);
 }
+
+// Auto-open ticket panel whenever we land on list or eticket view
+if((pnrChanged||viewChanged)&&(nv==='list'||nv==='eticket')){
+setTimeout(function(){
+var btn=document.getElementById('ctBtnTicket');
+if(btn&&openPopup!=='ctTicketPanel'){
+showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
+}
+},120);
+}
+}
+
+// MutationObserver — watch the best available target
+var observerDebounce=null;
+function setupObserver(){
+var target=document.querySelector('.area-out')||document.querySelector('.app.responses')||document.body;
+var observer=new MutationObserver(function(){
+if(pendingCommandPoll)return;
+// Debounce: wait 300ms after last mutation before extracting,
+// giving Sabre time to finish rendering all .dn-line elements
+if(observerDebounce)clearTimeout(observerDebounce);
+observerDebounce=setTimeout(function(){
+observerDebounce=null;
+handleViewChange(extractBookingInfo());
+},300);
 });
-var ra=document.querySelector('.area-out');
-if(ra)observer.observe(ra,{childList:true,subtree:true,characterData:true});
+observer.observe(target,{childList:true,subtree:true,characterData:true});
+}
+setupObserver();
+
+// Heartbeat — independent 300ms poll, catches anything the observer misses
+setInterval(function(){
+if(pendingCommandPoll||observerDebounce)return;
+var ni=extractBookingInfo();
+var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
+if((ni.pnr&&ni.pnr!==lastKnownPNR)||(nv!==currentTicketView)){
+handleViewChange(ni);
+}
+},300);
 
 document.addEventListener('click',function(e){
 if(!openPopup)return;
