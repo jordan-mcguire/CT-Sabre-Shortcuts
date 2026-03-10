@@ -245,9 +245,12 @@ return m[1].replace(/\s+\d+\.\d+.*$/,'').trim();
 }
 
 function extractBookingInfo(){
-var re=document.querySelector('.app.responses.text.views.Text.text');
-var bodyText=re?re.innerText:document.body.innerText;
-var lines=document.querySelectorAll('.dn-line.text-line');
+var responseElement=document.querySelector('.dn-response-line:last-of-type .dn-line-group')
+||document.querySelector('[class*="responses"]')
+||document.querySelector('.dn-line-group');
+var bodyText=responseElement?responseElement.innerText:document.body.innerText;
+var lineScope=responseElement||document;
+var lines=lineScope.querySelectorAll('.dn-line.text-line');
 var info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',
 method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',
 hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[],isGraphicalView:false};
