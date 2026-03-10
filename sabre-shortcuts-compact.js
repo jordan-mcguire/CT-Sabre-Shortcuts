@@ -269,14 +269,13 @@ var t=el.textContent.trim();
 if(t&&t.match(/^\d{13,17}$/))info.tickets.push({ticketNo:t,type:'ndc',isNDC:true,isEMD:false,source:'graphical'});
 });
 info.isGraphicalView=true;ticketsInView=info.tickets;
-currentTicketView=info.tickets.length>0?'list':'default';return info;
+return info;
 }
 
 var viewingET=isViewingIndividualETicket(bodyText);
 var classicT=extractClassicTickets(bodyText);
-if(viewingET){currentTicketView='eticket';info.hasEticket=true;}
-else if(classicT.length>0){currentTicketView='list';info.tickets=classicT;ticketsInView=classicT;}
-else{currentTicketView='default';}
+if(viewingET){info.hasEticket=true;}
+else if(classicT.length>0){info.tickets=classicT;ticketsInView=classicT;}
 
 var paxIdx=-1;
 for(var i=0;i<lines.length;i++){if(lines[i].innerText.trim().startsWith('1.1')){paxIdx=i;break;}}
