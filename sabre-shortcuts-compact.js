@@ -761,26 +761,27 @@ showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
 }
 }
 
-// MutationObserver — watch the best available target
+// Clear any previously registered heartbeat/observer from earlier bookmarklet runs
+if(window.__ctHeartbeat)clearInterval(window.__ctHeartbeat);
+if(window.__ctObserver)window.__ctObserver.disconnect();
+
+// Observer — pinned to window
 var observerDebounce=null;
-function setupObserver(){
-var target=document.querySelector('.area-out')||document.querySelector('.app.responses')||document.body;
-var observer=new MutationObserver(function(){
+window.__ctObserver=new MutationObserver(function(){
 if(pendingCommandPoll)return;
-// Debounce: wait 300ms after last mutation before extracting,
-// giving Sabre time to finish rendering all .dn-line elements
 if(observerDebounce)clearTimeout(observerDebounce);
 observerDebounce=setTimeout(function(){
 observerDebounce=null;
+if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
 handleViewChange(extractBookingInfo());
 },300);
 });
-observer.observe(target,{childList:true,subtree:true,characterData:true});
-}
-setupObserver();
+var obsTarget=document.querySelector('.area-out')||document.body;
+window.__ctObserver.observe(obsTarget,{childList:true,subtree:true,characterData:true});
 
-// Heartbeat — independent 300ms poll, catches anything the observer misses
-setInterval(function(){
+// Heartbeat — pinned to window so it survives IIFE garbage collection
+window.__ctHeartbeat=setInterval(function(){
+if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
 if(pendingCommandPoll||observerDebounce)return;
 var ni=extractBookingInfo();
 var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
