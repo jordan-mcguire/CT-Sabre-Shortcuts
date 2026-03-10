@@ -737,6 +737,14 @@ cameFromTicketList=false;cachedTicketContext=null;notesExpanded=false;
 closeAllPopups();updateAll();
 }else if(nv!==currentTicketView){
 currentBookingInfo=ni;currentTicketView=nv;updateAll();
+// Auto-open ticket panel when Sabre returns a ticket list or e-ticket,
+// whether triggered by a button or typed directly into the command line
+if(nv==='eticket'||nv==='list'){
+setTimeout(function(){
+var btn=document.getElementById('ctBtnTicket');
+if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
+},80);
+}
 }else{
 currentBookingInfo=ni;syncNotesBanner(ni);
 }
