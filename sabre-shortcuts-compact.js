@@ -761,6 +761,22 @@ showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
 }
 }
 
+// Expose state + trigger on window so heartbeat closure is unambiguous
+window.__ctState={
+get currentTicketView(){return currentTicketView;},
+set currentTicketView(v){currentTicketView=v;},
+get lastKnownPNR(){return lastKnownPNR;},
+get pendingCommandPoll(){return pendingCommandPoll;}
+};
+window.__ctTrigger=function(){
+var ni=extractBookingInfo();
+var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
+var pnrChanged=ni.pnr&&ni.pnr!==lastKnownPNR;
+var viewChanged=nv!==currentTicketView;
+if(pnrChanged||viewChanged)handleViewChange(ni);
+return {nv:nv,currentTicketView:currentTicketView,pnrChanged:pnrChanged,viewChanged:viewChanged};
+};
+
 // Clear any previously registered heartbeat/observer from earlier bookmarklet runs
 if(window.__ctHeartbeat)clearInterval(window.__ctHeartbeat);
 if(window.__ctObserver)window.__ctObserver.disconnect();
@@ -773,21 +789,17 @@ if(observerDebounce)clearTimeout(observerDebounce);
 observerDebounce=setTimeout(function(){
 observerDebounce=null;
 if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
-handleViewChange(extractBookingInfo());
+window.__ctTrigger();
 },300);
 });
 var obsTarget=document.querySelector('.area-out')||document.body;
 window.__ctObserver.observe(obsTarget,{childList:true,subtree:true,characterData:true});
 
-// Heartbeat — pinned to window so it survives IIFE garbage collection
+// Heartbeat — calls window.__ctTrigger so closure ambiguity is impossible
 window.__ctHeartbeat=setInterval(function(){
 if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
-if(pendingCommandPoll||observerDebounce)return;
-var ni=extractBookingInfo();
-var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
-if((ni.pnr&&ni.pnr!==lastKnownPNR)||(nv!==currentTicketView)){
-handleViewChange(ni);
-}
+if(window.__ctState.pendingCommandPoll)return;
+window.__ctTrigger();
 },300);
 
 document.addEventListener('click',function(e){
