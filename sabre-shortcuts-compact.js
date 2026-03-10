@@ -773,8 +773,11 @@ var ni=extractBookingInfo();
 var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
 var pnrChanged=ni.pnr&&ni.pnr!==lastKnownPNR;
 var viewChanged=nv!==currentTicketView;
-if(pnrChanged||viewChanged)handleViewChange(ni);
-return {nv:nv,currentTicketView:currentTicketView,pnrChanged:pnrChanged,viewChanged:viewChanged};
+// DOM sync check: if state says tickets but toolbar has no ticket button, force re-render
+var domDesynced=(currentTicketView==='list'||currentTicketView==='eticket')
+&&!document.getElementById('ctBtnTicket');
+if(pnrChanged||viewChanged||domDesynced)handleViewChange(ni);
+return {nv:nv,currentTicketView:currentTicketView,pnrChanged:pnrChanged,viewChanged:viewChanged,domDesynced:domDesynced};
 };
 
 // Clear any previously registered heartbeat/observer from earlier bookmarklet runs
