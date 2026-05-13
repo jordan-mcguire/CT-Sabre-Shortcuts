@@ -429,6 +429,8 @@ h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">COMMANDS</di
 h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+') <kbd>Alt+I</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
 h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
+h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
+h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
 h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
@@ -596,6 +598,17 @@ case 'queueSerko':
 executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
 case 'missedTTL':
 executeMissedTTL();break;
+case 'tnwPassives':
+closeAllPopups();
+var s1=document.createElement('script');
+s1.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-data.js?v='+Date.now();
+s1.onload=function(){
+  var s2=document.createElement('script');
+  s2.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-generator.js?v='+Date.now();
+  document.body.appendChild(s2);
+};
+document.body.appendChild(s1);
+break;
 }
 }
 
@@ -1005,8 +1018,10 @@ style.textContent=
 +'background:#1a5fcc;color:white;padding:16px 28px;border-radius:10px;z-index:1000003;'
 +'font-size:13px;font-weight:bold;box-shadow:0 4px 20px rgba(0,0,0,0.3);'
 +'text-align:center;max-width:300px;line-height:1.5;animation:ctFadeOut 4s forwards;}'
-+'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}';
-
++'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}'
++'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
++'.ct-tnw-btn:hover{background:#002d35 !important;}';
+  
 document.head.appendChild(style);
 
 // ── Mount ─────────────────────────────────────────────────────────────────────
