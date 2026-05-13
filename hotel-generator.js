@@ -281,7 +281,7 @@ function buildPreview(){
 
   var gPart=isPaying?'':'/G-'+gCard;
   var line1='0HHTYYGK'+rooms+city+'IN'+checkin+'-OUT'+checkout+'/'+hotel+'/'+roomType+'/'+totalRate+currency+'/W-'+provider+'/CRS-'+crs+'/SI-'+si+gPart+'/CF-'+cf;
-  var line2='L\u00A5VP-'+si+'/HTL-'+cf;
+  var line2='5L\u00A5VP-'+si+'/HTL-'+cf;
   p1.textContent=line1;
   p2.textContent=line2;
   btn.disabled=false;
