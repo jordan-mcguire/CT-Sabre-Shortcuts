@@ -200,7 +200,7 @@ function selectBooker(b){
   var isPaying=b.name==='PAYING OWN ACCOUNT';
   if(isPaying){cardIn.value='';cardIn.placeholder='N/A — guest pays own account';}
   else{
-    cardIn.value=b.card||'';
+cardIn.value=(b.card||'').replace('/EXP','EXP');
     cardIn.placeholder=b.card?'Auto-filled or enter manually':'No card on file — enter manually';
     if(!b.card){warn.textContent='No card on file for this booker';warn.style.display='block';}
   }
