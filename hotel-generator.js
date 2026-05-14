@@ -9,8 +9,12 @@ function fmtDate(d){
   return p[2]+mo[parseInt(p[1])-1];
 }
 function addDays(iso,n){
-  var d=new Date(iso+'T00:00:00');d.setDate(d.getDate()+n);
-  return d.toISOString().split('T')[0];
+  var p=iso.split('-');
+  var d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
+  d.setDate(d.getDate()+n);
+  var mm=String(d.getMonth()+1).padStart(2,'0');
+  var dd=String(d.getDate()).padStart(2,'0');
+  return d.getFullYear()+'-'+mm+'-'+dd;
 }
 function diffDays(a,b){
   return Math.round((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000);
