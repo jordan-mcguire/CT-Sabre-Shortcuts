@@ -213,19 +213,31 @@ function selectBooker(b){
 
 // ── Date / nights sync ────────────────────────────────────────────────────────
 document.getElementById('hgCheckin').addEventListener('input',function(){
-  var ci=this.value,n=parseInt(document.getElementById('hgNights').value),co=document.getElementById('hgCheckout').value;
-  if(ci&&n>0)document.getElementById('hgCheckout').value=addDays(ci,n);
-  else if(ci&&co){var d=diffDays(ci,co);if(d>0)document.getElementById('hgNights').value=d;}
+  var ci=this.value;
+  var n=parseInt(document.getElementById('hgNights').value);
+  var co=document.getElementById('hgCheckout').value;
+  if(ci&&n>0){
+    document.getElementById('hgCheckout').value=addDays(ci,n);
+  }else if(ci&&co&&co>ci){
+    document.getElementById('hgNights').value=diffDays(ci,co);
+  }
   buildPreview();
 });
 document.getElementById('hgNights').addEventListener('input',function(){
-  var ci=document.getElementById('hgCheckin').value,n=parseInt(this.value);
-  if(ci&&n>0)document.getElementById('hgCheckout').value=addDays(ci,n);
+  var n=parseInt(this.value);
+  var ci=document.getElementById('hgCheckin').value;
+  if(ci&&n>0){
+    document.getElementById('hgCheckout').value=addDays(ci,n);
+  }
   buildPreview();
 });
 document.getElementById('hgCheckout').addEventListener('input',function(){
-  var ci=document.getElementById('hgCheckin').value,co=this.value;
-  if(ci&&co){var d=diffDays(ci,co);if(d>0)document.getElementById('hgNights').value=d;}
+  var co=this.value;
+  var ci=document.getElementById('hgCheckin').value;
+  if(ci&&co&&co>ci){
+    var d=diffDays(ci,co);
+    if(d>0)document.getElementById('hgNights').value=d;
+  }
   buildPreview();
 });
 
@@ -238,6 +250,11 @@ document.getElementById('hgCheckout').addEventListener('input',function(){
 ['hgCity','hgProvider','hgRoomType','hgCF'].forEach(function(id){
   var el=document.getElementById(id);
   if(el)el.addEventListener('input',function(){this.value=this.value.toUpperCase();});
+});
+  document.getElementById('hgRate').addEventListener('blur',function(){
+  if(this.value&&parseFloat(this.value)>0){
+    this.value=parseFloat(this.value).toFixed(2);
+  }
 });
 
 function buildPreview(){
