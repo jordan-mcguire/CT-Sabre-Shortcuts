@@ -601,7 +601,7 @@ executeMissedTTL();break;
 case 'tnwPassives':
 closeAllPopups();
 var s1=document.createElement('script');
-s1.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-data.js?v='+Date.now();
+s1.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-data-2.js?v='+Date.now();
 s1.onload=function(){
   var s2=document.createElement('script');
   s2.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-generator.js?v='+Date.now();
