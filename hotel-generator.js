@@ -10,8 +10,7 @@ function fmtDate(d){
 }
 function addDays(iso,n){
   var p=iso.split('-');
-  var d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2]));
-  d.setDate(d.getDate()+n);
+  var d=new Date(parseInt(p[0]),parseInt(p[1])-1,parseInt(p[2])+parseInt(n));
   var mm=String(d.getMonth()+1).padStart(2,'0');
   var dd=String(d.getDate()).padStart(2,'0');
   return d.getFullYear()+'-'+mm+'-'+dd;
