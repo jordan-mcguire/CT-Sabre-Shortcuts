@@ -411,8 +411,8 @@ else if(bodyText.indexOf('A¥BOOKING STATUS CHANGED TO PENDING CANCELLATION')>-1
 else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
 else info.approved=false;
 
-var noteMatches=bodyText.matchAll(/\d+\.H-([^\n]+)/g);
-var noteLines=[];
+var noteMatches=bodyText.matchAll(/\d+\.H-N-([^\n]+)/g);
+  var noteLines=[];
 for(var nm of noteMatches){
 var nt=nm[1].trim();
 if(!/NDC AIRLINE CANCELLED FLIGHTS/i.test(nt)&&!/SPRQ SPECIAL REQUEST ADDED/i.test(nt))noteLines.push(nt);
