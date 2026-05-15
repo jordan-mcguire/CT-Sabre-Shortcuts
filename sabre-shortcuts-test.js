@@ -1,7 +1,7 @@
 (function(){
 if(document.getElementById('ctToolbar'))document.getElementById('ctToolbar').remove();
 if(document.getElementById('ctToolbarIcon'))document.getElementById('ctToolbarIcon').remove();
-['ctNotesBanner','ctCopyPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
+['ctNotesBanner','ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
 
@@ -393,6 +393,7 @@ return '<div id="ctToolbarInner" style="border-left:4px solid '+borderColor+';">
 // Button group
 +'<div class="ct-btn-group">'
 +'<button class="ct-tb-btn ct-btn-copy" id="ctBtnCopy" title="Copy options">📋 Copy</button>'
++'<button class="ct-tb-btn ct-btn-view" id="ctBtnView" title="View in external tools">👁 View</button>'
 +(hasTickets?'<button class="ct-tb-btn ct-btn-ticket" id="ctBtnTicket" title="Ticket actions">🎫 Ticket</button>':'')
 +'<button class="ct-tb-btn ct-btn-actions" id="ctBtnActions" title="Actions">⚡ Actions'+notesDot+'</button>'
 +'<button class="ct-tb-btn ct-btn-shortcuts" id="ctBtnShortcuts" title="Keyboard shortcuts">⌨️</button>'
@@ -419,21 +420,23 @@ h+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Cont
 return h;
 }
 
+function buildViewPopupHTML(info){
+var h='<div class="ct-popup-label">VIEW</div>';
+h+='<button class="ct-popup-btn" data-action="viewSerko">🔗 View in Serko <kbd>Alt+S</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="masquerade">👤 View in YourCT <kbd>Alt+Y</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="viewAgentportProfile">🧑 Agentport (Profile) <kbd>Alt+A</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="viewAgentportCompany">🏢 Agentport (Company) <kbd>Alt+G</kbd></button>';
+return h;
+}
+
 function buildActionsPopupHTML(info){
-var h='<div class="ct-popup-label">NAVIGATE</div>';
-h+='<div class="ct-nav-row">';
-h+='<button class="ct-popup-btn ct-nav-btn" data-action="viewSerko">🔗 Serko <kbd>Alt+S</kbd></button>';
-h+='<button class="ct-popup-btn ct-nav-btn" data-action="masquerade">👤 YourCT <kbd>Alt+Y</kbd></button>';
-h+='</div>';
-h+='<div class="ct-nav-row">';
-h+='<button class="ct-popup-btn ct-nav-btn" data-action="viewAgentportProfile">🧑 AP Profile <kbd>Alt+A</kbd></button>';
-h+='<button class="ct-popup-btn ct-nav-btn" data-action="viewAgentportCompany">🏢 AP Company <kbd>Alt+G</kbd></button>';
-h+='</div>';
-h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">COMMANDS</div>';
+var h='<div class="ct-popup-label">COMMANDS</div>';
 h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+') <kbd>Alt+I</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
 h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost Centre</button>';
+h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
+h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
 h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
@@ -606,7 +609,7 @@ executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAll
 case 'missedTTL':
 executeMissedTTL();break;
 case 'changeCostCentre':
-  var ccMatch=document.body.innerText.match(/(\d+)\.\s*5L¥CC-([^\n]+)/);
+var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-([^\n]+)/);
   var ccLine=ccMatch?ccMatch[1]:'';
   var ccCurrent=ccMatch?ccMatch[2].trim():'';
   var ccExisting=document.getElementById('ctCostCentreBar');
@@ -702,16 +705,16 @@ case 'openTicketRegister':
   closeAllPopups();
   break;
 case 'tnwPassives':
-closeAllPopups();
-var s1=document.createElement('script');
-s1.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-data-2.js?v='+Date.now();
-s1.onload=function(){
-  var s2=document.createElement('script');
-  s2.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-generator.js?v='+Date.now();
-  document.body.appendChild(s2);
-};
-document.body.appendChild(s1);
-break;
+  closeAllPopups();
+  var s1=document.createElement('script');
+  s1.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-data-2.js?v='+Date.now();
+  s1.onload=function(){
+    var s2=document.createElement('script');
+    s2.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/hotel-generator.js?v='+Date.now();
+    document.body.appendChild(s2);
+  };
+  document.body.appendChild(s1);
+  break;
 }
 }
 
@@ -784,8 +787,10 @@ e.stopPropagation();showPopup(popupId,buildFn(currentBookingInfo),this);
 });
 }
 btn('ctBtnCopy','ctCopyPopup',buildCopyPopupHTML);
+btn('ctBtnView','ctViewPopup',buildViewPopupHTML);
 btn('ctBtnActions','ctActionsPopup',buildActionsPopupHTML);
 btn('ctBtnTicket','ctTicketPanel',buildTicketPanelHTML);
+  
 
 var bs=document.getElementById('ctBtnShortcuts');
 if(bs)bs.addEventListener('click',function(e){
@@ -1038,6 +1043,8 @@ style.textContent=
 +'transition:background 0.15s,color 0.15s;'
 +'border-left:1px solid #f0d0d8;}'
 
+  
+
 // Each button a subtly different tint so they're visually distinct
 +'.ct-btn-copy{background:#fff0f4;color:#cc1a45;}'
 +'.ct-btn-copy:hover{background:#ff2e5f;color:white;}'
@@ -1049,6 +1056,8 @@ style.textContent=
 +'.ct-btn-shortcuts:hover{background:#555;color:white;}'
 +'.ct-btn-collapse{background:#f5f5f5;color:#999;font-size:18px;padding:0 10px;}'
 +'.ct-btn-collapse:hover{background:#eee;color:#555;}'
++'.ct-btn-view{background:#f0fff4;color:#1a7a3a;}'
++'.ct-btn-view:hover{background:#1a7a3a;color:white;}'
 
 // Notes dot on Actions button
 +'.ct-notes-dot{'
