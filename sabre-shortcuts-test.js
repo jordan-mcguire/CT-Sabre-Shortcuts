@@ -782,8 +782,8 @@ executeMissedTTL();break;
   break;
 case 'changeCostCentre':
     var lbBar2=document.getElementById('ctLuminaBookingBar');if(lbBar2)lbBar2.remove();
-var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-([^\n]+)/);
-  var ccLine=ccMatch?ccMatch[1]:'';
+var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-(?!NAME|CARD|FOP)([^\n]+)/);
+    var ccLine=ccMatch?ccMatch[1]:'';
   var ccCurrent=ccMatch?ccMatch[2].trim():'';
   var ccExisting=document.getElementById('ctCostCentreBar');
   if(ccExisting){ccExisting.remove();break;}
@@ -838,42 +838,7 @@ case 'openTicketRegister':
     +'?action=edit&editTicketNumber='+regNum
     +'&editTicketDesignator='+regDesig
     +'&editTicketType=ETK';
-  var regExisting=document.getElementById('ctTicketRegisterModal');
-  if(regExisting){regExisting.remove();}
-  var regBdExisting=document.getElementById('ctTicketRegisterBackdrop');
-  if(regBdExisting){regBdExisting.remove();}
-  var regModal=document.createElement('div');
-  regModal.id='ctTicketRegisterModal';
-  regModal.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);'
-    +'width:80vw;height:80vh;background:white;z-index:1000010;'
-    +'border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,0.4);'
-    +'display:flex;flex-direction:column;overflow:hidden;';
-  regModal.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;'
-    +'padding:10px 16px;background:#ff2e5f;color:white;font-family:Aptos,Arial,sans-serif;flex-shrink:0;">'
-    +'<span style="font-size:12px;font-weight:700;">🎫 Ticket Register — '+regDesig+' '+regNum+'</span>'
-    +'<button id="ctTRClose" style="background:rgba(255,255,255,0.25);border:none;color:white;'
-    +'font-size:16px;font-weight:bold;cursor:pointer;border-radius:4px;padding:2px 8px;line-height:1;">✕</button>'
-    +'</div>'
-    +'<iframe src="'+regUrl+'" style="flex:1;border:none;width:100%;"></iframe>'
-    +'<div id="ctTRFallback" style="display:none;flex:1;align-items:center;justify-content:center;'
-    +'flex-direction:column;gap:12px;font-family:Aptos,Arial,sans-serif;color:#555;">'
-    +'<div style="font-size:13px;">Could not load in iframe.</div>'
-    +'<button onclick="window.open(\''+regUrl+'\',\'_blank\')" style="background:#ff2e5f;color:white;'
-    +'border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:700;">Open in New Tab</button>'
-    +'</div>';
-  var regBackdrop=document.createElement('div');
-  regBackdrop.id='ctTicketRegisterBackdrop';
-  regBackdrop.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000009;';
-  regBackdrop.addEventListener('click',function(){
-    var m=document.getElementById('ctTicketRegisterModal');if(m)m.remove();
-    regBackdrop.remove();
-  });
-  document.body.appendChild(regBackdrop);
-  document.body.appendChild(regModal);
-  document.getElementById('ctTRClose').addEventListener('click',function(){
-    document.getElementById('ctTicketRegisterModal').remove();
-    document.getElementById('ctTicketRegisterBackdrop').remove();
-  });
+  window.open(regUrl,'_blank','width=1200,height=800,scrollbars=yes,resizable=yes');
   closeAllPopups();
   break;
 case 'tnwPassives':
@@ -1314,7 +1279,9 @@ style.textContent=
 +'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
 +'.ct-tnw-btn:hover{background:#002d35 !important;}'
 +'.ct-nav-row{display:flex;gap:4px;margin:2px 0;}'
-+'.ct-nav-btn{flex:1;text-align:center;padding:7px 4px;font-size:9.5px;}';
++'.ct-nav-btn{flex:1;text-align:center;padding:7px 4px;font-size:9.5px;}'
+  +'.ct-tr-list-btn{flex:0 0 auto !important;width:auto !important;}'
+  ;
 
   
 document.head.appendChild(style);
