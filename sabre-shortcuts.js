@@ -249,6 +249,7 @@ var el=document.getElementById(id);
 if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
 });
 openPopup=null;
+var bnr=document.getElementById('ctNotesBanner');if(bnr)bnr.style.display='';
 }
 
 // ── Approval helpers ──────────────────────────────────────────────────────────
@@ -614,6 +615,7 @@ return h;
 function showPopup(id,contentHTML,anchorBtn){
 closeAllPopups();
 if(openPopup===id){openPopup=null;return;}
+var bnr=document.getElementById('ctNotesBanner');if(bnr)bnr.style.display='none';
 var popup=document.createElement('div');
 popup.id=id;popup.className='ct-popup';
 popup.innerHTML=contentHTML;
@@ -1279,8 +1281,6 @@ style.textContent=
 +'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}'
 +'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
 +'.ct-tnw-btn:hover{background:#002d35 !important;}'
-+'.ct-nav-row{display:flex;gap:4px;margin:2px 0;}'
-+'.ct-nav-btn{flex:1;text-align:center;padding:7px 4px;font-size:9.5px;}'
   +'.ct-tr-list-btn{flex:0 0 auto !important;width:auto !important;}'
   ;
 
