@@ -35,6 +35,115 @@ const gdsDropdown=document.querySelector('select#RefundApplication_GDS');
 if(gdsDropdown){gdsDropdown.value='Sabre';gdsDropdown.dispatchEvent(new Event('change',{bubbles:true}));}
 const tmsCheckbox=document.querySelector('input#ConsultantDetails_TmsClient[type="checkbox"]');
 if(tmsCheckbox){tmsCheckbox.checked=true;tmsCheckbox.dispatchEvent(new Event('change',{bubbles:true}));}
+// Auto-select airline from designator (first 3 digits of ticket)
+if(data.ticketNo){
+var rawTkt=data.ticketNo.replace(/[^0-9]/g,'');
+var desig=rawTkt.slice(0,3);
+// Map: designator (zero-padded to 3 digits) -> option value
+var desigMap={
+'001':'AA','012':'NW','014':'AC','016':'UA','018':'HO','019':'9R',
+'021':'V3','025':'RU','027':'AS','028':'VY','031':'PW','035':'4C',
+'037':'US','038':'TQ','040':'LK','041':'JQ','042':'RG','044':'AR',
+'045':'LA','047':'TP','048':'CY','050':'OA','053':'EI','054':'2D',
+'055':'AZ','057':'AF','058':'IC','061':'HM','063':'SB','064':'OK',
+'065':'SV','066':'8Q','068':'TM','071':'ET','072':'GF','074':'KL',
+'075':'IB','076':'ME','077':'MS','078':'K2','079':'PR','080':'LO',
+'081':'QF','082':'SN','083':'SA','086':'NZ','090':'IT','096':'IR',
+'098':'AI','100':'EN','101':'EN','102':'2L','103':'D2','104':'EW',
+'105':'AY','106':'BW','108':'FI','109':'UR','111':'UP','113':'QN',
+'114':'LY','115':'JU','117':'SK','118':'DT','120':'JS','123':'ON',
+'124':'AH','125':'BA','126':'GA','127':'G3','128':'UO','129':'MP',
+'131':'JL','132':'MX','133':'LR','134':'AV','135':'VT','136':'CU',
+'138':'ZN','139':'AM','140':'LI','141':'FZ','142':'KF','145':'UC',
+'146':'XK','147':'AT','148':'LN','149':'LG','150':'UG','152':'VH',
+'155':'ES','157':'QR','159':'LE','160':'CX','161':'MN','162':'OL',
+'163':'A5','165':'JP','166':'FP','167':'QM','168':'UM','169':'HR',
+'170':'GE','173':'HA','176':'EK','178':'OR','180':'KE','182':'MA',
+'184':'4B','185':'GN','186':'SW','188':'K6','190':'TY','191':'IG',
+'192':'PY','193':'IE','195':'FV','197':'TC','199':'TU','200':'SD',
+'201':'JM','202':'TA','203':'5J','205':'NH','211':'2P','214':'PK',
+'217':'TG','218':'NF','219':'YN','220':'LH','225':'5Z','226':'2J',
+'228':'UK','229':'KU','230':'CM','231':'NG','232':'MH','235':'TK',
+'238':'IZ','239':'MK','244':'TN','245':'7F','246':'ST','247':'O6',
+'248':'6I','250':'HY','255':'FG','257':'OS','258':'MD','260':'FJ',
+'261':'I5','262':'U6','263':'VE','264':'JH','266':'LT','269':'EQ',
+'275':'GP','276':'TF','277':'XF','279':'B6','281':'RO','283':'HB',
+'285':'RA','286':'4N','289':'OM','291':'R2','293':'DQ','294':'T7',
+'295':'WM','297':'CI','298':'UT','299':'DR','302':'OO','303':'ZW',
+'304':'C2','306':'9K','308':'V0','310':'SL','312':'6E','314':'K7',
+'316':'5N','321':'9J','323':'QQ','324':'SC','325':'NP','328':'DY',
+'330':'RF','331':'S4','334':'FN','337':'SY','339':'KS','342':'YQ',
+'343':'VP','347':'WP','348':'KV','353':'NU','361':'QT','362':'7R',
+'363':'RP','365':'W2','367':'IN','372':'L4','375':'3K','376':'BB',
+'378':'KX','379':'ZG','384':'RQ','386':'B5','390':'A3','391':'2M',
+'394':'AW','399':'QB','400':'4O','402':'J0','403':'PO','405':'FR',
+'409':'YM','411':'5U','412':'VI','415':'MW','420':'GI','421':'S7',
+'422':'F9','425':'DP','427':'TX','429':'TT','430':'9E','432':'NM',
+'433':'P6','436':'KJ','437':'RM','439':'ZI','441':'FC','443':'P0',
+'448':'VL','449':'3M','450':'9B','451':'PD','453':'YX','455':'NA',
+'457':'Z2','459':'WB','461':'7W','462':'XL','464':'Z8','465':'KC',
+'466':'3H','467':'T3','470':'K9','471':'VC','473':'SE','474':'NT',
+'478':'OW','479':'ZH','481':'QX','483':'HF','486':'J9','487':'NK',
+'492':'XW','495':'L6','496':'SM','501':'V2','502':'7J','503':'CD',
+'504':'9X','510':'JF','512':'RJ','513':'IW','515':'SF','518':'5T',
+'521':'ZQ','522':'LF','525':'B7','526':'WN','529':'3W','533':'YV',
+'537':'W5','540':'TO','541':'Z4','542':'T5','544':'LP','546':'8U',
+'547':'2K','550':'BL','555':'SU','557':'ZC','558':'5O','559':'K8',
+'564':'XQ','566':'PS','568':'LW','570':'HT','572':'9U','577':'AD',
+'581':'GM','583':'HQ','584':'X4','586':'RW','590':'W6','593':'XY',
+'595':'HH','597':'SI','598':'HZ','599':'8M','601':'J7','602':'P9',
+'603':'UL','604':'UY','605':'H2','606':'A9','607':'EY','608':'XR',
+'609':'H8','610':'2A','613':'JB','615':'QY','616':'6A','618':'SQ',
+'621':'MZ','622':'MO','623':'FB','624':'PC','626':'CG','627':'QV',
+'628':'B2','629':'MI','631':'GL','632':'JV','633':'GQ','634':'9M',
+'635':'IY','636':'BP','637':'B8','638':'PJ','639':'LV','642':'5D',
+'643':'KM','649':'TS','653':'JY','656':'PX','657':'BT','663':'PE',
+'664':'YC','665':'UB','666':'FU','667':'PE','668':'TR','669':'MJ',
+'670':'GD','672':'BI','675':'NX','680':'JK','681':'T4','682':'LM',
+'683':'CL','685':'NI','689':'WX','690':'LJ','692':'PZ','693':'4Y',
+'694':'YW','695':'BR','696':'VR','701':'WF','702':'VB','705':'S2',
+'706':'KQ','707':'ZJ','708':'JO','709':'6L','712':'V7','717':'R7',
+'722':'TW','723':'QA','724':'LX','725':'W3','730':'GT','731':'MF',
+'736':'GJ','737':'SP','738':'VN','739':'7V','740':'NL','741':'4Q',
+'743':'M4','747':'YO','749':'4Z','751':'UW','752':'JZ','753':'LC',
+'754':'BY','755':'GZ','758':'R8','759':'IH','760':'UU','761':'QU',
+'763':'M5','769':'H9','770':'EO','771':'J2','772':'SX','774':'FM',
+'778':'CW','781':'MU','783':'E9','784':'CZ','786':'B3','787':'KB',
+'789':'9N','794':'6A','795':'VA','796':'BJ','797':'QS','801':'J8',
+'803':'AE','806':'7C','807':'AK','809':'RE','810':'M6','814':'9F',
+'815':'EP','816':'OD','818':'6H','819':'MY','820':'RS','823':'NN',
+'825':'2W','826':'GS','828':'UF','829':'PG','831':'OU','836':'NS',
+'838':'WS','841':'C5','843':'D7','845':'P5','847':'PN','848':'UD',
+'849':'R3','850':'3C','851':'HX','853':'QP','856':'9H','859':'8L',
+'862':'EV','863':'VZ','864':'ZS','870':'8B','876':'3U','877':'N3',
+'878':'OQ','880':'HU','881':'DE','882':'NY','883':'BU','886':'OH',
+'887':'SH','893':'DZ','894':'QE','898':'JD','899':'ZL','900':'FD',
+'902':'AQ','903':'4D','904':'MV','905':'8P','910':'WY','911':'U7',
+'914':'5H','916':'JE','918':'FY','922':'7G','923':'SS','924':'GR',
+'926':'QH','927':'WJ','928':'UZ','929':'N6','930':'OB','932':'VS',
+'935':'TL','937':'QJ','938':'ID','942':'VW','943':'VU','945':'WK',
+'947':'L3','948':'R4','949':'LS','950':'XS','957':'JJ','960':'OV',
+'961':'LQ','966':'U9','967':'PB','971':'B4','972':'LU','974':'ZB',
+'975':'QZ','978':'VJ','979':'HV','980':'CE','982':'BX','983':'QK',
+'984':'VX','988':'OZ','990':'JT','991':'D3','993':'BH','994':'ZE',
+'995':'JA','996':'UX','997':'BG','999':'CA'
+};
+var airlineCode=desigMap[desig];
+if(airlineCode){
+var airlineDropdown=document.querySelector('select[id*="SelectedAirline"]');
+if(airlineDropdown){
+// Find option by text content matching airline code
+var opts=airlineDropdown.querySelectorAll('option');
+for(var i=0;i<opts.length;i++){
+if(opts[i].text.trim()===airlineCode){
+airlineDropdown.value=opts[i].value;
+airlineDropdown.dispatchEvent(new Event('change',{bubbles:true}));
+break;
+}
+}
+}
+}
+}
 this.textContent='✓ PASTED!';this.style.background='#28a745';
 setTimeout(function(){document.getElementById('sabrePasteButton').remove();},2000);
 }else{alert('No refund data found in clipboard. Please click REFUND in Sabre first.');}
@@ -132,8 +241,11 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
+['ctCostCentreBar','ctLuminaBookingBar'].forEach(function(id){
+var el=document.getElementById(id);if(el)el.remove();
+});
 ['ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
-  var el=document.getElementById(id);
+var el=document.getElementById(id);
 if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
 });
 openPopup=null;
@@ -299,8 +411,13 @@ else if(bodyText.indexOf('A¥BOOKING STATUS CHANGED TO PENDING CANCELLATION')>-1
 else if(bodyText.indexOf('B¥BOOKING AUTHORISED')>-1)info.approved=true;
 else info.approved=false;
 
-var noteMatches=bodyText.matchAll(/\d+\.H-N-(.+?)(?=\n|$)/g);
-for(var nm of noteMatches){var nt=nm[1].trim();if(!/NDC AIRLINE CANCELLED FLIGHTS/i.test(nt))info.notes.push(nt);}
+var noteMatches=bodyText.matchAll(/\d+\.H-([^\n]+)/g);
+var noteLines=[];
+for(var nm of noteMatches){
+var nt=nm[1].trim();
+if(!/NDC AIRLINE CANCELLED FLIGHTS/i.test(nt)&&!/SPRQ SPECIAL REQUEST ADDED/i.test(nt))noteLines.push(nt);
+}
+if(noteLines.length>0)info.notes=[noteLines.join(' ')];
 
 var em=bodyText.match(/E¥PAX-([^\n]+)/);if(em)info.email=em[1].replace(/\.\./g,'_').replace(/¤/g,'@').trim();
 var pm=bodyText.match(/P¥PAX-([^\n]+)/);if(pm)info.phone=pm[1].trim();
@@ -330,13 +447,13 @@ function renderNotesBanner(banner,notes){
 banner.innerHTML=
 '<div class="ct-banner-header">'
 +'<span class="ct-banner-icon">⚠️</span>'
-+'<span class="ct-banner-title">'+notes.length+' Note'+(notes.length>1?'s':'')+' to Agent</span>'
-+'<span class="ct-banner-toggle">'+(notesExpanded?'▾':'▸')+'</span>'
++'<span class="ct-banner-title">Notes to Agent</span>'
+  +'<span class="ct-banner-toggle">'+(notesExpanded?'▾':'▸')+'</span>'
 +'</div>'
 +(notesExpanded
 ?'<div class="ct-banner-notes">'
-+notes.map(function(n){return '<div class="ct-banner-note-line">'+n+'</div>';}).join('')
-+'</div>':'');
++'<div class="ct-banner-note-line">'+notes[0]+'</div>'
+  +'</div>':'');
 banner.onclick=function(e){
 e.stopPropagation();notesExpanded=!notesExpanded;
 renderNotesBanner(banner,notes);repositionBanner();
@@ -458,11 +575,15 @@ info.tickets.forEach(function(ticket){
 var labels='';
 if(ticket.isNDC)labels+=' <span class="ndc-label">NDC</span>';
 if(ticket.isEMD)labels+=' <span class="emd-label">EMD</span>';
-h+='<button class="ct-popup-btn ct-ticket-item" data-ticket-no="'+ticket.ticketNo+'" data-type="'+ticket.type+'">'+ticket.ticketNo+labels+'</button>';
+h+='<div style="display:flex;gap:4px;margin:2px 0;">'
++'<button class="ct-popup-btn ct-ticket-item" style="flex:1;" data-ticket-no="'+ticket.ticketNo+'" data-type="'+ticket.type+'">'+ticket.ticketNo+labels+'</button>'
++'<button class="ct-popup-btn ct-tr-list-btn" style="flex:0 0 auto;font-size:9px;padding:7px 6px;" data-action="openTicketRegister" data-ticket-no="'+ticket.ticketNo+'">🔍</button>'
++'</div>';
 });
 h+='<div class="ct-ticket-note">NDC tickets require graphical view in Ticketing tab.</div>';
 }else if(currentTicketView==='eticket'){
-h+='<div class="ct-popup-label">🎫 TICKET ACTIONS</div>';
+var dispTkt=currentBookingInfo.ticketInfo.ticketNo||(cachedTicketContext&&cachedTicketContext.ticketNo)||'';
+h+='<div class="ct-popup-label">🎫 '+(dispTkt||'TICKET ACTIONS')+'</div>';
 h+='<div class="ct-tkt-row">';
 h+='<button class="ct-popup-btn" data-action="copyTicketNo">TKT NO</button>';
 h+='<button class="ct-popup-btn" data-action="copyTicketName">NAME</button>';
@@ -519,6 +640,10 @@ closeAllPopups();
 popup.querySelectorAll('[data-action]').forEach(function(btn){
 btn.addEventListener('click',function(e){
 e.preventDefault();e.stopPropagation();
+var overrideTicket=this.getAttribute('data-ticket-no');
+if(overrideTicket&&this.getAttribute('data-action')==='openTicketRegister'){
+cachedTicketContext={ticketNo:overrideTicket,pnr:cachedPNR,traveler:cachedTraveler};
+}
 handleAction(this.getAttribute('data-action'),this);
 });
 });
@@ -610,6 +735,7 @@ executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAll
 case 'missedTTL':
 executeMissedTTL();break;
     case 'changeLuminaBooking':
+    var ccBar2=document.getElementById('ctCostCentreBar');if(ccBar2)ccBar2.remove();
   var lbMatch=document.body.innerText.match(/(\d+)\.\s*L¥LUMINA ID-(\d+)/);
   var lbLine=lbMatch?lbMatch[1]:'';
   var lbCurrent=lbMatch?lbMatch[2].trim():'';
@@ -656,6 +782,7 @@ executeMissedTTL();break;
   });
   break;
 case 'changeCostCentre':
+    var lbBar2=document.getElementById('ctLuminaBookingBar');if(lbBar2)lbBar2.remove();
 var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-([^\n]+)/);
   var ccLine=ccMatch?ccMatch[1]:'';
   var ccCurrent=ccMatch?ccMatch[2].trim():'';
@@ -874,7 +1001,13 @@ function executeViewEticket(ticketNo,ticketType){
 cachedTicketContext={ticketNo:ticketNo,pnr:cachedPNR,traveler:cachedTraveler,type:ticketType};
 if(ticketsInView.length>1)cameFromTicketList=true;
 if(ticketType==='ndc'||ticketType==='ndc-emd'){
-alert('NDC ticket — view graphically in Ticketing tab. Context cached for refund.');return;
+currentTicketView='eticket';
+updateAll();
+setTimeout(function(){
+var btn=document.getElementById('ctBtnTicket');
+if(btn)showPopup('ctTicketPanel',buildTicketPanelHTML(currentBookingInfo),btn);
+},80);
+return;
 }
 executeSabreCommand((ticketType==='emd'?'WEMD*T':'WETR*T')+ticketNo.replace(/[\/-].*$/,''),'eticket');
 }
@@ -910,6 +1043,7 @@ var viewChanged=nv!==currentTicketView;
 if(pnrChanged){
 lastKnownPNR=ni.pnr;currentBookingInfo=ni;currentTicketView=nv;
 cameFromTicketList=false;cachedTicketContext=null;notesExpanded=false;
+cachedTraveler='';cachedPNR='';
 closeAllPopups();updateAll();
 }else if(viewChanged){
 currentBookingInfo=ni;currentTicketView=nv;updateAll();
@@ -1192,6 +1326,14 @@ var toolbar=document.createElement('div');
 toolbar.id='ctToolbar';
 toolbar.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(toolbar);
+  (function(){
+var areaOut=document.querySelector('.area-out');
+if(areaOut){
+var r=areaOut.getBoundingClientRect();
+toolbar.style.right=(window.innerWidth-r.right+16)+'px';
+toolbar.style.bottom=(window.innerHeight-r.bottom+16)+'px';
+}
+})();
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
 setTimeout(repositionBanner,50);
