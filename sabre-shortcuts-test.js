@@ -132,8 +132,8 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
-['ctCopyPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
-var el=document.getElementById(id);
+['ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
+  var el=document.getElementById(id);
 if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
 });
 openPopup=null;
@@ -434,8 +434,9 @@ var h='<div class="ct-popup-label">COMMANDS</div>';
 h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+todayDDMON()+') <kbd>Alt+I</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
 h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
+h+='<button class="ct-popup-btn" data-action="changeLuminaBooking">🔢 Change Lumina Booking</button>';
 h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost Centre</button>';
-h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
+  h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
 h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
@@ -608,6 +609,52 @@ case 'queueSerko':
 executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
 case 'missedTTL':
 executeMissedTTL();break;
+    case 'changeLuminaBooking':
+  var lbMatch=document.body.innerText.match(/(\d+)\.\s*L¥LUMINA ID-(\d+)/);
+  var lbLine=lbMatch?lbMatch[1]:'';
+  var lbCurrent=lbMatch?lbMatch[2].trim():'';
+  var lbExisting=document.getElementById('ctLuminaBookingBar');
+  if(lbExisting){lbExisting.remove();break;}
+  var lbTb=document.getElementById('ctToolbar');
+  if(!lbTb)break;
+  var lbBar=document.createElement('div');
+  lbBar.id='ctLuminaBookingBar';
+  var lbRect=lbTb.getBoundingClientRect();
+  lbBar.style.cssText='position:fixed;z-index:1000005;'
+    +'right:'+(window.innerWidth-lbRect.right)+'px;'
+    +'bottom:'+(window.innerHeight-lbRect.top+8)+'px;'
+    +'background:white;border:1.5px solid #f0d0d8;border-radius:10px;'
+    +'box-shadow:0 4px 20px rgba(0,0,0,0.18);'
+    +'padding:10px 12px;font-family:Aptos,Arial,sans-serif;width:300px;'
+    +'animation:ctPopIn 0.2s ease-out;';
+  lbBar.innerHTML='<div style="font-size:8px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">🔢 CHANGE LUMINA BOOKING'+(lbLine?' — Line '+lbLine:'')+'</div>'
+    +'<input id="ctLBInput" type="text" value="'+lbCurrent+'" placeholder="Lumina Booking ID" '
+    +'style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #f0d0d8;border-radius:5px;'
+    +'font-size:11px;font-family:Aptos,Arial,sans-serif;margin-bottom:7px;outline:none;" />'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button id="ctLBSubmit" style="flex:1;background:#ff2e5f;color:white;border:none;border-radius:5px;'
+    +'padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Submit</button>'
+    +'<button id="ctLBCancel" style="background:#f5f5f5;color:#555;border:1px solid #ddd;border-radius:5px;'
+    +'padding:6px 10px;font-size:11px;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Cancel</button>'
+    +'</div>'
+    +(!lbMatch?'<div style="font-size:9px;color:#e65100;margin-top:6px;">⚠️ No existing Lumina ID line found — will add as new remark</div>':'');
+  document.body.appendChild(lbBar);
+  closeAllPopups();
+  var lbInput=document.getElementById('ctLBInput');
+  lbInput.focus();lbInput.select();
+  document.getElementById('ctLBCancel').addEventListener('click',function(){lbBar.remove();});
+  document.getElementById('ctLBSubmit').addEventListener('click',function(){
+    var newVal=document.getElementById('ctLBInput').value.trim();
+    if(!newVal){showToast('⚠️ Lumina ID cannot be empty');return;}
+    var cmd=lbLine?('5'+lbLine+'¤L¥LUMINA ID-'+newVal):('5L¥LUMINA ID-'+newVal);
+    executeSabreCommand(cmd,null,function(){showToast('✅ Lumina ID updated — save PNR');});
+    lbBar.remove();
+  });
+  lbInput.addEventListener('keydown',function(e){
+    if(e.key==='Enter')document.getElementById('ctLBSubmit').click();
+    if(e.key==='Escape')lbBar.remove();
+  });
+  break;
 case 'changeCostCentre':
 var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-([^\n]+)/);
   var ccLine=ccMatch?ccMatch[1]:'';
@@ -1101,11 +1148,9 @@ style.textContent=
 
 // Popup
 +'.ct-popup{position:fixed;z-index:1000001;width:230px;background:white;'
-// The ticket panel and copy popup can stay at 230px, so give actions its own width.
-// Add this rule AFTER the existing .ct-popup rule:
-+'.ct-popup#ctActionsPopup{width:290px;}'
 +'border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,0.2);border:1.5px solid #f0d0d8;'
 +'padding:8px;opacity:0;transform:translateY(6px);transition:opacity 0.15s ease,transform 0.15s ease;}'
++'.ct-popup#ctActionsPopup{width:290px;}'
 +'.ct-popup-label{font-size:8px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.6px;padding:5px 6px 3px;}'
 +'.ct-popup-btn{display:block;width:100%;text-align:left;padding:7px 10px;margin:2px 0;'
 +'background:#fff8fa;color:#222;border:1px solid #f0d0d8;border-radius:6px;'
