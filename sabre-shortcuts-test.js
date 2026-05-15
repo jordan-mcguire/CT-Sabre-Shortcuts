@@ -765,7 +765,6 @@ executeMissedTTL();break;
     +'</div>'
     +(!lbMatch?'<div style="font-size:9px;color:#e65100;margin-top:6px;">⚠️ No existing Lumina ID line found — will add as new remark</div>':'');
   document.body.appendChild(lbBar);
-  closeAllPopups();
   var lbInput=document.getElementById('ctLBInput');
   lbInput.focus();lbInput.select();
   document.getElementById('ctLBCancel').addEventListener('click',function(){lbBar.remove();});
@@ -812,7 +811,6 @@ var ccMatch=document.body.innerText.match(/(\d+)\.\s*L¥CC-([^\n]+)/);
     +'</div>'
     +(!ccMatch?'<div style="font-size:9px;color:#e65100;margin-top:6px;">⚠️ No existing CC line found — will add as new remark</div>':'');
   document.body.appendChild(ccBar);
-  closeAllPopups();
   var ccInput=document.getElementById('ctCCInput');
   ccInput.focus();ccInput.select();
   document.getElementById('ctCCCancel').addEventListener('click',function(){ccBar.remove();});
