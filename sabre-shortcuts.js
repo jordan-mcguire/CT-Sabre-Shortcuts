@@ -405,7 +405,7 @@ if(rawPax){var np=rawPax.split('/');if(np.length>=2){info.surname=np[0].trim();i
 var cm=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);if(cm)info.company=cm[1].trim();
 var lm=bodyText.match(/L¥LUMINA ID-(\d+)/);if(lm)info.luminaId=lm[1].trim();
 var bm=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);if(bm)info.booker=bm[1].trim();
-var mm=bodyText.match(/\s*(\d+)\.L¥METHOD-([WMET])/);if(mm){info.methodLine=parseInt(mm[1]);info.method=mm[2];}
+var mm=bodyText.match(/(?:^|\n)\s*(\d+)\.L¥METHOD-([WMET])/m);if(mm){info.methodLine=parseInt(mm[1]);info.method=mm[2];}
 
 if(bodyText.indexOf('B¥BOOKING REJECTED')>-1)info.approved='rejected';
 else if(bodyText.indexOf('A¥BOOKING STATUS CHANGED TO PENDING CANCELLATION')>-1)info.approved='cancellation';
