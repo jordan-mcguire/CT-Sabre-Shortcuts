@@ -152,6 +152,55 @@ setTimeout(function(){document.getElementById('sabrePasteButton').remove();},200
 return;
 }
 
+  if(window.location.href.includes('booking.jetstar.com')){
+  var jqBtn=document.createElement('div');
+  jqBtn.id='jqPasteButton';
+  jqBtn.innerHTML='<button id="pasteToJQBtn">✈️ PASTE TO JETSTAR</button>';
+  jqBtn.style.cssText='position:fixed;top:20px;right:20px;z-index:999999;';
+  document.body.appendChild(jqBtn);
+  var jqBtnStyle=document.createElement('style');
+  jqBtnStyle.textContent='#pasteToJQBtn{background:linear-gradient(135deg,#ff6600 0%,#ff9944 100%);color:white;border:none;padding:15px 25px;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Aptos,Arial,sans-serif;transition:transform 0.2s ease;}#pasteToJQBtn:hover{transform:scale(1.05);}';
+  document.head.appendChild(jqBtnStyle);
+  document.getElementById('pasteToJQBtn').addEventListener('click',async function(){
+    try{
+      var clip=await navigator.clipboard.readText();
+      if(!clip.startsWith('##JQ_FILL##')){alert('No JQ data found. Click "Copy to JQ Portal" in Sabre first.');return;}
+      var jqData={};
+      clip.split('\n').forEach(function(l){
+        if(l.includes('TITLE:'))jqData.title=l.split('TITLE:')[1].trim();
+        if(l.includes('FIRST:'))jqData.first=l.split('FIRST:')[1].trim();
+        if(l.includes('SURNAME:'))jqData.surname=l.split('SURNAME:')[1].trim();
+        if(l.includes('EMAIL:'))jqData.email=l.split('EMAIL:')[1].trim();
+        if(l.includes('PHONE:'))jqData.phone=l.split('PHONE:')[1].trim();
+      });
+      function setVal(el,val){el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}
+      // Passenger title
+      var titleSel=document.querySelector('select#passenger_title_0');
+      if(titleSel)setVal(titleSel,jqData.title);
+      // Passenger first/last
+      var paxFirst=document.querySelector('input#passenger_Firstname_0');
+      if(paxFirst)setVal(paxFirst,jqData.first);
+      var paxLast=document.querySelector('input#passenger_Lastname_0');
+      if(paxLast)setVal(paxLast,jqData.surname);
+      // Contact first/last
+      var conFirst=document.querySelector('input#js-contact_Name_First');
+      if(conFirst)setVal(conFirst,jqData.first);
+      var conLast=document.querySelector('input#js-contact_Name_Last');
+      if(conLast)setVal(conLast,jqData.surname);
+      // Email
+      var emailEl=document.querySelector('input#contact_Email_Address');
+      if(emailEl)setVal(emailEl,jqData.email);
+      // Phone
+      var phoneEl=document.querySelector('input#contact_Phone_Number');
+      if(phoneEl)setVal(phoneEl,jqData.phone);
+      document.getElementById('jqPasteButton').querySelector('button').textContent='✓ PASTED!';
+      document.getElementById('jqPasteButton').querySelector('button').style.background='#28a745';
+      setTimeout(function(){var b=document.getElementById('jqPasteButton');if(b)b.remove();},2000);
+    }catch(err){alert('Could not read clipboard: '+err.message);}
+  });
+  return;
+}
+
 // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
 function injectTidyButton(){
 var modal=document.querySelector('.trip-proposal-share-modal');
@@ -534,6 +583,7 @@ h+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kb
 h+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+J</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+C</kbd></button>';
+  h+='<button class="ct-popup-btn ct-jq-btn" data-action="copyToJQ">✈️ Copy to JQ Portal</button>';
 }
 return h;
 }
@@ -853,6 +903,19 @@ case 'tnwPassives':
     document.body.appendChild(s2);
   };
   document.body.appendChild(s1);
+  break;
+case 'copyToJQ':
+  var raw=currentBookingInfo.traveller||cachedTraveler||'';
+  var jqM=raw.match(/^([^\/]+)\/(.+)\s+(MR|MRS|MS|MISS|DR|CAPT|PROF|REV)$/i);
+  if(!jqM){showToast('⚠️ Could not parse name/title from PNR');break;}
+  var jqSurname=jqM[1].trim();
+  var jqFirst=jqM[2].trim();
+  var jqTitle=jqM[3].toUpperCase();
+  var jqPhone=currentBookingInfo.phone||'';
+  var jqPhoneClean=jqPhone.replace(/\D/g,'').slice(-9);
+  var jqEmail=currentBookingInfo.email||'';
+  var jqPayload='##JQ_FILL##\nTITLE:'+jqTitle+'\nFIRST:'+jqFirst+'\nSURNAME:'+jqSurname+'\nEMAIL:'+jqEmail+'\nPHONE:'+jqPhoneClean;
+  navigator.clipboard.writeText(jqPayload).then(function(){showToast('✓ Copied for JQ Portal');});
   break;
 }
 }
@@ -1205,6 +1268,8 @@ style.textContent=
 +'.ct-btn-shortcuts:hover{background:#fff0f4;color:#ff2e5f;}'
 +'.ct-btn-collapse{background:#fafafa;color:#bbb;font-size:18px;padding:0 10px;}'
 +'.ct-btn-collapse:hover{background:#fff0f4;color:#ff2e5f;}'
+  +'.ct-jq-btn{background:#ff6600;color:white;font-weight:600;}'
++'.ct-jq-btn:hover{background:#e55a00;color:white;}'
 
 
 // Notes dot on Actions button
