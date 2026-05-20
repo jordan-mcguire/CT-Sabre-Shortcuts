@@ -360,7 +360,8 @@ else if(typeof callback==='function')setTimeout(callback,800);
 function executeMissedTTL(){
 closeAllPopups();
 // Step 1: update method to Mixed (M)
-var methodLine=currentBookingInfo.methodLine;
+var freshInfo=extractBookingInfo();
+var methodLine=freshInfo.methodLine;
 if(!methodLine){showToast('⚠️ No method line found');return;}
 executeSabreCommand('5'+methodLine+'¤L¥METHOD-M',null,function(){
 // Step 2: update TTL to today
