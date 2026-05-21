@@ -154,90 +154,111 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
   }
 
   // 13. Transform fare rules
-  function reformatFareValue(val){
+  function chipHTML(text,bg,color){
+    return'<span style="display:inline-block;background:'+bg+';color:'+color+';border-radius:4px;padding:2px 7px;font-size:9px;margin:2px 3px 2px 0;border:1px solid rgba(0,0,0,0.08)">'+text+'</span>';
+  }
+  function reformatFareValue(val,isExchange){
     if(!val)return'';
-    val=val.trim();
-    if(!val)return'';
-    // Check for non-refundable
-    if(/non.?refundable|no refund/i.test(val)){
-      return'<strong style="color:#d81525">'+val.toUpperCase()+'</strong>';
-    }
-    // Split on semicolons and reformat each part
+    val=val.trim();if(!val)return'';
     var parts=val.split(';').map(function(p){
-      p=p.trim();
-      if(!p)return null;
-      // Extract amount e.g. "Refundable (before departure) 842.00 AUD"
-      // or "Changeable (after departure) 281.00 AUD"
-      var m=p.match(/(?:refundable|changeable|non.refundable)?\s*\(([^)]+)\)\s*([\d,.]+)\s*(AUD|USD|EUR|GBP|NZD)?/i);
+      p=p.trim();if(!p)return null;
+      // Non-refundable check - just highlight those words
+      var hasNR=/non.?refundable|no refund/i.test(p);
+      var m=p.match(/\(([^)]+)\)\s*([\d,.]+)\s*(AUD|USD|EUR|GBP|NZD)?/i);
       if(m){
         var descriptor=m[1].trim();
         var amount=m[2].trim();
-        var currency=m[3]?m[3]:' ';
-        // highlight non-refundable within parts
-        if(/non.?refundable|no refund/i.test(p)){
-          return'<strong style="color:#d81525">'+amount+' '+currency+' ('+descriptor+')</strong>';
-        }
-        return amount+' '+currency+' ('+descriptor+')';
+        var currency=m[3]||'AUD';
+        var label=amount+' '+currency+' ('+descriptor+')';
+        if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong> '+label,'#fff0f0','#333');
+        return chipHTML(label,'#f5f5f5','#444');
       }
-      // fallback - highlight if non-refundable
-      if(/non.?refundable|no refund/i.test(p)){
-        return'<strong style="color:#d81525">'+p+'</strong>';
-      }
-      return p;
+      if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong>','#fff0f0','#333');
+      return chipHTML(p,'#f5f5f5','#444');
     }).filter(Boolean);
-    return parts.join(' · ');
+    var html=parts.join('');
+    if(isExchange)html+='<br><em style="font-size:9px;color:#999;margin-left:2px">Changes are subject to class availability and additional fare/tax difference applies.</em>';
+    return html;
   }
-
   function reformatFlightConditions(val){
     if(!val)return'';
-    // Split on semicolons
-    var parts=val.split(';').map(function(p){
+    return val.split(';').map(function(p){
       p=p.trim();if(!p)return null;
-      // Bold ticketing time limit
-      if(/ticketing time limit/i.test(p)){
-        return'<strong>'+p+'</strong>';
-      }
-      return p;
-    }).filter(Boolean);
-    return parts.join(' · ');
+      var isTTL=/ticketing time limit/i.test(p);
+      return chipHTML(
+        isTTL?'<strong>⏰ '+p+'</strong>':p,
+        isTTL?'#fff8e1':'#f0f4ff',
+        isTTL?'#7a5800':'#334'
+      );
+    }).filter(Boolean).join('');
   }
 
-  var fareRulesTables=doc.querySelectorAll('[id*="-fare-rules"]');
-  fareRulesTables.forEach(function(el){
-    // Only process the outer fare-rules table (not sub-tables)
+  doc.querySelectorAll('[id*="-fare-rules"]').forEach(function(el){
     if(!el.id.match(/^proposal-(enhanced|compact)-fare-rules$/))return;
-    var rows=[];
+    var chips=[];
 
-    // Cancellation penalties
     var refundEl=el.querySelector('[id*="-penalties-refund-value"]');
     var refundVal=refundEl?refundEl.textContent.trim():'';
     if(refundVal){
-      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Cancellation penalties:</strong> <span style="font-size:11px;color:#444">'+reformatFareValue(refundVal)+'</span></td></tr>');
+      chips.push('<div style="margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Cancellation:</span>'+reformatFareValue(refundVal,false)+'</div>');
     }
 
-    // Changes
     var exchEl=el.querySelector('[id*="-penalties-exchange-value"]');
     var exchVal=exchEl?exchEl.textContent.trim():'';
     if(exchVal){
-      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Changes:</strong> <span style="font-size:11px;color:#444">'+reformatFareValue(exchVal)+'</span><br><em style="font-size:10px;color:#888">Changes are subject to class availability and additional fare/tax difference applies.</em></td></tr>');
+      chips.push('<div style="margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Changes:</span>'+reformatFareValue(exchVal,true)+'</div>');
     }
 
-    // Flight conditions
     var condEl=el.querySelector('[id*="-flight-conditions-value"]');
     var condVal=condEl?condEl.textContent.trim():'';
     if(condVal){
-      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Flight conditions:</strong> <span style="font-size:11px;color:#666">'+reformatFlightConditions(condVal)+'</span></td></tr>');
+      chips.push('<div style="margin-bottom:2px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Conditions:</span>'+reformatFlightConditions(condVal)+'</div>');
     }
 
-    if(!rows.length){el.style.display='none';return;}
+    if(!chips.length){el.style.display='none';return;}
 
-    // Replace entire fare rules table content with clean version
-    el.innerHTML='<tr><td style="padding:12px 16px;background:#f8f8f8;border-top:1px solid #e5e5e5">'
-      +'<strong style="font-size:11px;color:#333;display:block;margin-bottom:6px">Fare Rules</strong>'
-      +'<table width="100%" cellpadding="0" cellspacing="0" border="0">'
-      +rows.join('')
-      +'</table>'
+    el.innerHTML='<tr><td style="padding:10px 16px;border-top:1px solid #e8e8e8">'
+      +'<div style="font-size:9px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Fare Rules</div>'
+      +chips.join('')
       +'</td></tr>';
+  });
+
+  // 13b. Aircraft/baggage - replace bold labels with icon inline format (both views)
+  // Enhanced view - aircraft label/value pairs (seats/meal already removed, aircraft+baggage remain)
+  doc.querySelectorAll('[id*="-aircraft-label"]').forEach(function(label){
+    var aircraftSpan=label.nextElementSibling;
+    // Find baggage label/value in same td
+    var td=label.closest('td');
+    if(!td)return;
+    var baggageLabel=td.querySelector('[id*="-baggage-label"]');
+    var baggageSpan=baggageLabel?baggageLabel.nextElementSibling:null;
+    var aircraftText=aircraftSpan?aircraftSpan.textContent.trim():'';
+    var baggageText=baggageSpan?baggageSpan.textContent.trim():'';
+    // Build replacement
+    var parts=[];
+    if(aircraftText)parts.push('✈ '+aircraftText);
+    if(baggageText)parts.push('🧳 '+baggageText);
+    if(!parts.length)return;
+    // Insert styled div before label, remove original elements
+    var div=doc.createElement('div');
+    div.style.cssText='font-size:10px;color:#888;font-style:italic;padding-top:4px;';
+    div.textContent=parts.join(' · ');
+    // Remove all the original label+span pairs for aircraft and baggage
+    [label,aircraftSpan,baggageLabel,baggageSpan].forEach(function(el){
+      if(el&&el.parentNode)el.parentNode.removeChild(el);
+    });
+    td.appendChild(div);
+  });
+
+  // 13c. Compact hotel rows - add small padding between each tr
+  doc.querySelectorAll('[id*="-hotel-segment-"][id*="-content"] table table tr').forEach(function(tr){
+    var td=tr.querySelector('td');
+    if(td&&!td.getAttribute('style')){
+      td.style.paddingBottom='4px';
+    }else if(td){
+      var s=td.getAttribute('style');
+      if(s.indexOf('padding-bottom')===-1)td.setAttribute('style',s+';padding-bottom:4px');
+    }
   });
 
   // 14. Outlook/email cleanup - remove role="presentation" and !important only
