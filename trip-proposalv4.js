@@ -2,7 +2,7 @@
 
 var ADDITIONAL_INFO='<table width="100%" style="margin-top:24px;border-collapse:collapse;font-family:Arial,sans-serif"><tr><td style="background:#f5f5f5;border:1px solid #e0e0e0;border-left:3px solid #ff2e5f;padding:14px 16px;border-radius:4px"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:8px">ADDITIONAL INFORMATION</strong><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">All passport and visa requirements are the responsibility of the traveller.</p><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">If you need more information about visas, passports, health and security for each country, please visit: <a href="https://www.fctgtravelnews.com/" style="color:#ff2e5f">Travel News</a></p><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">All prices indicated are subject to change and availability. In the event of a refund request, some taxes may not be refunded.</p><p style="margin:0;font-size:11px;color:#333;line-height:1.5">For more information on these topics, please contact your dedicated team.</p></td></tr></table>';
 
-var IMPORTANT_NOTICE='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#f5f5f5;border:1px solid #d0d0d0;border-left:3px solid #ff2e5f;padding:10px 14px;border-radius:4px"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">IMPORTANT NOTICE</strong><ul style="font-style:italic;font-size:10px;margin:0;padding-left:18px;color:#333;line-height:1.4"><li style="margin-bottom:4px">All prices quoted are subject to change until tickets are issued, even if tentatively holding.</li><li style="margin-bottom:4px">Airlines reserve the right to change surcharges, fare levels and taxes without notice.</li><li>Corporate Traveller fees are not included in your quote, as per schedule of fees, and will be charged at the time of invoicing.</li></ul></div></td></tr></table>';
+var IMPORTANT_NOTICE='<table width="100%" style="margin:8px 0;border-collapse:collapse"><tr><td style="padding:6px 12px;border:1px solid #e0e0e0;border-radius:3px;background:#fafafa"><span style="font-size:9px;color:#999;line-height:1.5">All prices are subject to change until tickets are issued. Airlines reserve the right to change surcharges, fare levels and taxes without notice. Corporate Traveller fees are not included and will be charged at time of invoicing per schedule of fees.</span></td></tr></table>';
 
 var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#fff;border:2px solid #ff9800;border-radius:6px;padding:12px 14px"><strong style="color:#ff9800;font-size:11px;display:block;margin-bottom:6px">⚠️ CAR RENTAL IMPORTANT INFORMATION</strong><ul style="font-size:10px;color:#333;margin:0;padding-left:18px;line-height:1.4"><li style="margin-bottom:4px">You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li style="margin-bottom:4px">Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li style="margin-bottom:4px">Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></td></tr></table>';
 
@@ -129,7 +129,27 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
   var preview=doc.getElementById('trip-preview');
   if(preview){preview.setAttribute('width','1000');preview.style.maxWidth='1000px';}
 
-  // 10. Important notice + car warning before options
+  // 9b. Restyle header - minimal: small logo left, proposal ID chip right
+  var headerRow=doc.querySelector('.proposal-enhanced-main-header-row,.proposal-compact-main-header-row');
+  if(headerRow){
+    // Get existing logo img src
+    var logoImg=doc.getElementById(pType+'-agency-logo-header');
+    var logoSrc=logoImg?logoImg.querySelector('img')?logoImg.querySelector('img').getAttribute('src'):'':'';
+    // Get proposal ID
+    var propIdEl=doc.getElementById(pType+'-proposal-id');
+    var propId=propIdEl?propIdEl.textContent.trim():'';
+    // Build clean header
+    headerRow.innerHTML='<td style="padding:10px 16px;border-bottom:1px solid #ebebeb">'
+      +'<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>'
+      +'<td style="vertical-align:middle">'
+      +(logoSrc?'<img src="'+logoSrc+'" style="height:24px;width:auto;display:block" alt="Corporate Traveller"/>':'')
+      +'</td>'
+      +'<td style="vertical-align:middle;text-align:right">'
+      +(propId?'<span style="display:inline-block;border:1px solid #e0e0e0;border-radius:4px;padding:2px 10px;font-size:9px;color:#666;font-family:Arial,sans-serif">Trip Proposal ID: <strong style="color:#333">'+propId+'</strong></span>':'')
+      +'</td>'
+      +'</tr></table>'
+      +'</td>';
+  }
   var bodyEl=doc.getElementById(pType==='proposal-compact'?'proposal-compact-body':'proposal-enhanced-body');
   if(bodyEl){
     var noticeRow=doc.createElement('tr');
@@ -294,51 +314,57 @@ function injectStyles(){
   var ts=_pd.createElement('style');ts.id='ctTidyStyle';
   ts.textContent=
     '.ct-tidy-btn{background-color:#ff2e5f!important;color:#fff!important;}'
-
-    // Panel sits above modal footer, full width, inside modal
     +'#ctTidyPanel{'
-    +'position:absolute;left:0;right:0;bottom:56px;'
-    +'background:#fff;border-top:2px solid #ff2e5f;'
-    +'box-shadow:0 -4px 16px rgba(0,0,0,.12);'
-    +'font-family:Aptos,Arial,sans-serif;font-size:11px;'
-    +'z-index:9999;}'
-
-    // Header bar - always visible
+    +'position:absolute;right:0;bottom:56px;'
+    +'width:340px;'
+    +'background:#fff;border-top:2px solid #ff2e5f;border-left:1px solid #f0d0d8;'
+    +'box-shadow:-4px -4px 16px rgba(0,0,0,.1);'
+    +'font-family:Aptos,Arial,sans-serif;font-size:11px;z-index:9999;}'
     +'#ctTidyHeader{'
     +'display:flex;align-items:center;justify-content:space-between;'
     +'background:linear-gradient(135deg,#ff2e5f,#ff6b9d);'
-    +'padding:7px 14px;cursor:pointer;}'
-    +'#ctTidyHeader .ct-htitle{'
-    +'color:#fff;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}'
-    +'#ctTidyHeader .ct-hbtns{display:flex;gap:8px;align-items:center;}'
-    +'#ctTidyHeader button{'
-    +'background:rgba(255,255,255,.2);border:none;color:#fff;'
-    +'border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;'
-    +'font-family:inherit;}'
+    +'padding:6px 10px;cursor:pointer;}'
+    +'#ctTidyHeader .ct-htitle{color:#fff;font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;}'
+    +'#ctTidyHeader .ct-hbtns{display:flex;gap:6px;align-items:center;}'
+    +'#ctTidyHeader button{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:4px;padding:2px 7px;font-size:10px;cursor:pointer;font-family:inherit;}'
     +'#ctTidyHeader button:hover{background:rgba(255,255,255,.35);}'
-
-    // Collapsible body
     +'#ctTidyBody{display:block;}'
     +'#ctTidyBody.ct-collapsed{display:none;}'
-
-    // Scrollable options area
-    +'#ctTidyOpts{'
-    +'max-height:160px;overflow-y:auto;'
-    +'padding:8px 14px;border-bottom:1px solid #f0d0d8;}'
-
-    +'#ctTidyPanel .ct-or{display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #fce8ee;}'
+    // Mode tabs
+    +'#ctTidyTabs{display:flex;border-bottom:1px solid #f0d0d8;}'
+    +'#ctTidyTabs .ct-tab{flex:1;padding:5px;font-size:9.5px;font-weight:700;text-align:center;cursor:pointer;color:#999;border:none;background:none;font-family:inherit;}'
+    +'#ctTidyTabs .ct-tab.active{color:#ff2e5f;border-bottom:2px solid #ff2e5f;}'
+    // Options area
+    +'#ctTidyOpts{max-height:180px;overflow-y:auto;padding:6px 10px;}'
+    +'#ctTidyPanel .ct-or{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #fce8ee;}'
     +'#ctTidyPanel .ct-or:last-child{border-bottom:none;}'
-    +'#ctTidyPanel .ct-or input[type=checkbox]{accent-color:#ff2e5f;width:13px;height:13px;flex-shrink:0;cursor:pointer;}'
-    +'#ctTidyPanel .ct-ol{flex:1;font-weight:600;color:#333;cursor:pointer;font-size:10.5px;}'
-    +'#ctTidyPanel .ct-pi{border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:10px;width:75px;text-align:right;font-family:Arial,sans-serif;}'
+    +'#ctTidyPanel .ct-or input[type=checkbox]{accent-color:#ff2e5f;width:12px;height:12px;flex-shrink:0;cursor:pointer;}'
+    +'#ctTidyPanel .ct-ol{flex:1;font-weight:600;color:#333;cursor:pointer;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    +'#ctTidyPanel .ct-pi{border:1px solid #ddd;border-radius:4px;padding:2px 5px;font-size:10px;width:68px;text-align:right;font-family:Arial,sans-serif;}'
     +'#ctTidyPanel .ct-pi:focus{border-color:#ff2e5f;outline:none;}'
-    +'#ctTidyPanel .ct-ml{font-size:9px;color:#999;white-space:nowrap;}'
-    +'#ctTidyPanel .ct-mi{border:1px solid #ffccd5;border-radius:4px;padding:3px 6px;font-size:10px;width:55px;text-align:right;font-family:Arial,sans-serif;background:#fff9fa;}'
+    +'#ctTidyPanel .ct-ml{font-size:9px;color:#bbb;white-space:nowrap;}'
+    +'#ctTidyPanel .ct-mi{border:1px solid #ffccd5;border-radius:4px;padding:2px 5px;font-size:10px;width:45px;text-align:right;font-family:Arial,sans-serif;background:#fff9fa;}'
     +'#ctTidyPanel .ct-mi:focus{border-color:#ff2e5f;outline:none;}'
-
-    // Action buttons row
-    +'#ctTidyFooter{display:flex;gap:8px;padding:8px 14px;}'
-    +'#ctTidyPanel .ct-ab{flex:1;padding:7px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;}'
+    +'#ctTidyPanel .ct-hp{width:16px;height:16px;cursor:pointer;accent-color:#ff2e5f;flex-shrink:0;}'
+    +'#ctTidyPanel .ct-hpl{font-size:8px;color:#bbb;white-space:nowrap;}'
+    // Merch-all row
+    +'#ctMerchAll{display:flex;align-items:center;gap:6px;padding:5px 10px;border-top:1px solid #f0d0d8;background:#fff9fa;}'
+    +'#ctMerchAll label{font-size:9px;color:#999;flex:1;}'
+    +'#ctMerchAll input{border:1px solid #ffccd5;border-radius:4px;padding:2px 5px;font-size:10px;width:50px;text-align:right;font-family:Arial,sans-serif;}'
+    +'#ctMerchAll button{background:#ff2e5f;color:#fff;border:none;border-radius:4px;padding:2px 8px;font-size:9px;font-weight:700;cursor:pointer;font-family:inherit;}'
+    // Package mode
+    +'#ctPkgArea{padding:6px 10px;}'
+    +'#ctPkgArea .ct-pkg-row{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #fce8ee;}'
+    +'#ctPkgArea .ct-pkg-row:last-of-type{border-bottom:none;}'
+    +'#ctPkgArea .ct-pkg-row input[type=checkbox]{accent-color:#ff2e5f;width:12px;height:12px;flex-shrink:0;}'
+    +'#ctPkgArea .ct-pkg-label{flex:1;font-size:10px;color:#333;font-weight:600;}'
+    +'#ctPkgArea .ct-pkg-inputs{padding:6px 0;border-top:1px solid #f0d0d8;}'
+    +'#ctPkgArea input[type=text]{border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:10px;font-family:Arial,sans-serif;width:100%;box-sizing:border-box;margin-bottom:4px;}'
+    +'#ctPkgArea input[type=text]:focus{border-color:#ff2e5f;outline:none;}'
+    +'#ctPkgArea .ct-pkg-note{font-size:9px;color:#999;font-style:italic;}'
+    // Footer
+    +'#ctTidyFooter{display:flex;gap:6px;padding:7px 10px;border-top:1px solid #f0d0d8;}'
+    +'#ctTidyPanel .ct-ab{flex:1;padding:6px;border:none;border-radius:5px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;}'
     +'#ctTidyPanel .ct-cb{background:#ff2e5f;color:#fff;}'
     +'#ctTidyPanel .ct-cb:hover{background:#d4234e;}'
     +'#ctTidyPanel .ct-pb{background:#f5f5f5;color:#333;border:1px solid #ddd;}'
@@ -365,78 +391,141 @@ function injectTidyButton(){
 
 var _opts=[];
 var _collapsed=false;
+var _mode='normal'; // 'normal' or 'package'
 
 function showPanel(){
-  // If panel exists, toggle collapse
-  if(_pd.getElementById('ctTidyPanel')){
-    toggleCollapse();
-    return;
-  }
-
+  if(_pd.getElementById('ctTidyPanel')){toggleCollapse();return;}
   var srcdoc=getSrcdoc();
   if(!srcdoc){alert('Could not find proposal. Click Share first.');return;}
   var doc=parseSrcdoc(srcdoc);
   var pType=getProposalType(doc);
   _opts=findOptions(doc,pType);
   if(!_opts.length){alert('No options found in proposal.');return;}
-  _collapsed=false;
+  _collapsed=false;_mode='normal';
 
   var modal=_pd.querySelector('.trip-proposal-share-modal .modal-content');
   if(!modal)return;
   modal.style.position='relative';
 
-  var rows=_opts.map(function(o){
-    return '<div class="ct-or">'
-      +'<input type="checkbox" checked class="ct-ck" data-key="'+o.key+'" id="ctck'+o.key+'">'
-      +'<label class="ct-ol" for="ctck'+o.key+'">'+o.icon+' '+o.label+'</label>'
-      +(o.price
-        ?'<input class="ct-pi" type="text" value="'+o.price+'" data-pf="'+o.key+'" data-base="'+o.price+'" placeholder="Price">'
-         +'<span class="ct-ml">+$</span>'
-         +'<input class="ct-mi" type="text" value="" data-mf="'+o.key+'" placeholder="merch">'
-        :'')
-      +'</div>';
-  }).join('');
-
   var panel=_pd.createElement('div');
   panel.id='ctTidyPanel';
   panel.innerHTML=
     '<div id="ctTidyHeader">'
-      +'<span class="ct-htitle">⚙ TIDY OPTIONS</span>'
+      +'<span class="ct-htitle">⚙ TIDY</span>'
       +'<div class="ct-hbtns">'
         +'<button id="ctTogglePanel">▼</button>'
         +'<button id="ctClosePanel">✕</button>'
       +'</div>'
     +'</div>'
     +'<div id="ctTidyBody">'
-      +'<div id="ctTidyOpts">'+rows+'</div>'
+      +'<div id="ctTidyTabs">'
+        +'<button class="ct-tab active" id="ctTabNormal">Normal</button>'
+        +'<button class="ct-tab" id="ctTabPkg">Package</button>'
+      +'</div>'
+      +'<div id="ctNormalMode">'
+        +'<div id="ctTidyOpts">'+buildNormalRows()+'</div>'
+        +'<div id="ctMerchAll">'
+          +'<label>Apply merch to all flights: +$</label>'
+          +'<input type="text" id="ctMerchAllInput" placeholder="0.00">'
+          +'<button id="ctMerchAllBtn">Apply</button>'
+        +'</div>'
+      +'</div>'
+      +'<div id="ctPkgMode" style="display:none">'
+        +'<div id="ctPkgArea">'+buildPkgRows()+'</div>'
+      +'</div>'
       +'<div id="ctTidyFooter">'
         +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Apply</button>'
-        +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 Print / Save PDF</button>'
+        +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 PDF</button>'
       +'</div>'
     +'</div>';
 
   modal.appendChild(panel);
 
-  _pd.getElementById('ctTidyHeader').addEventListener('click',function(e){
-    // Only toggle if not clicking a button
-    if(e.target.tagName!=='BUTTON')toggleCollapse();
-  });
+  // Header events
+  _pd.getElementById('ctTidyHeader').addEventListener('click',function(e){if(e.target.tagName!=='BUTTON')toggleCollapse();});
   _pd.getElementById('ctTogglePanel').addEventListener('click',toggleCollapse);
   _pd.getElementById('ctClosePanel').addEventListener('click',function(){panel.remove();});
   _pd.getElementById('ctDoCopy').addEventListener('click',function(){runTidy('copy');});
   _pd.getElementById('ctDoPDF').addEventListener('click',function(){runTidy('pdf');});
 
-  // Wire merch inputs
+  // Tab switching
+  _pd.getElementById('ctTabNormal').addEventListener('click',function(){
+    _mode='normal';
+    this.classList.add('active');_pd.getElementById('ctTabPkg').classList.remove('active');
+    _pd.getElementById('ctNormalMode').style.display='';
+    _pd.getElementById('ctPkgMode').style.display='none';
+  });
+  _pd.getElementById('ctTabPkg').addEventListener('click',function(){
+    _mode='package';
+    this.classList.add('active');_pd.getElementById('ctTabNormal').classList.remove('active');
+    _pd.getElementById('ctNormalMode').style.display='none';
+    _pd.getElementById('ctPkgMode').style.display='';
+  });
+
+  // Merch inputs
   panel.querySelectorAll('.ct-mi').forEach(function(mi){
     mi.addEventListener('input',function(){
       var key=mi.dataset.mf;
       var pi=panel.querySelector('.ct-pi[data-pf="'+key+'"]');
       if(!pi)return;
-      var base=parseFloat(pi.dataset.base)||0;
-      var merch=parseFloat(mi.value)||0;
-      pi.value=(base+merch).toFixed(2);
+      pi.value=(parseFloat(pi.dataset.base)||0)+(parseFloat(mi.value)||0);
+      pi.value=parseFloat(pi.value).toFixed(2);
     });
   });
+
+  // Apply merch to all flights
+  _pd.getElementById('ctMerchAllBtn').addEventListener('click',function(){
+    var val=parseFloat(_pd.getElementById('ctMerchAllInput').value)||0;
+    panel.querySelectorAll('.ct-mi[data-mf*="-air"],.ct-mi[data-mf$="-air"]').forEach(function(mi){
+      // match air options only
+      var key=mi.dataset.mf;
+      if(key.indexOf('air')===-1)return;
+      mi.value=val.toFixed(2);
+      var pi=panel.querySelector('.ct-pi[data-pf="'+key+'"]');
+      if(pi)pi.value=((parseFloat(pi.dataset.base)||0)+val).toFixed(2);
+    });
+    // Also trigger on all flight merch inputs
+    panel.querySelectorAll('.ct-mi').forEach(function(mi){
+      if(mi.dataset.mf&&mi.dataset.mf.indexOf('air')!==-1){
+        mi.value=val.toFixed(2);
+        var pi=panel.querySelector('.ct-pi[data-pf="'+mi.dataset.mf+'"]');
+        if(pi)pi.value=((parseFloat(pi.dataset.base)||0)+val).toFixed(2);
+      }
+    });
+  });
+}
+
+function buildNormalRows(){
+  return _opts.map(function(o){
+    var isAir=o.type==='air';
+    return '<div class="ct-or">'
+      +'<input type="checkbox" checked class="ct-ck" data-key="'+o.key+'" id="ctck'+o.key+'">'
+      +'<label class="ct-ol" for="ctck'+o.key+'">'+o.icon+' '+o.label+'</label>'
+      +(o.price
+        ?'<input class="ct-pi" type="text" value="'+o.price+'" data-pf="'+o.key+'" data-base="'+o.price+'" placeholder="Price">'
+         +(isAir?'<span class="ct-ml">+$</span><input class="ct-mi" type="text" value="" data-mf="'+o.key+'" placeholder="0">':'')
+         +'<input type="checkbox" class="ct-hp" title="Hide price" data-hpf="'+o.key+'">'
+         +'<span class="ct-hpl">hide</span>'
+        :'')
+      +'</div>';
+  }).join('');
+}
+
+function buildPkgRows(){
+  var flightOpts=_opts.filter(function(o){return o.type==='air';});
+  if(!flightOpts.length)return'<div style="font-size:10px;color:#999;padding:8px 0">No flight options found.</div>';
+  var rows=flightOpts.map(function(o){
+    return'<div class="ct-pkg-row">'
+      +'<input type="checkbox" class="ct-pkg-ck" data-key="'+o.key+'" id="ctpkg'+o.key+'">'
+      +'<label class="ct-pkg-label" for="ctpkg'+o.key+'">'+o.icon+' '+o.label+'</label>'
+      +'</div>';
+  }).join('');
+  rows+='<div class="ct-pkg-inputs">'
+    +'<input type="text" id="ctPkgLabel" placeholder="Package label e.g. Flight Package">'
+    +'<input type="text" id="ctPkgPrice" placeholder="Package price e.g. 3500.00">'
+    +'<div class="ct-pkg-note">First selected option shows label + price. Remaining options show flight details only, no header price.</div>'
+    +'</div>';
+  return rows;
 }
 
 function toggleCollapse(){
@@ -451,26 +540,82 @@ function toggleCollapse(){
 function runTidy(mode){
   var srcdoc=getSrcdoc();
   if(!srcdoc){alert('Could not find proposal.');return;}
-
   var panel=_pd.getElementById('ctTidyPanel');
-  var selectedKeys={};
-  panel.querySelectorAll('.ct-ck').forEach(function(cb){
-    if(cb.checked)selectedKeys[cb.dataset.key]=true;
-  });
-  if(!Object.keys(selectedKeys).length){alert('Please select at least one option.');return;}
 
+  var selectedKeys={};
   var priceOverrides={};
-  panel.querySelectorAll('.ct-pi').forEach(function(inp){
-    var v=inp.value.trim();if(v)priceOverrides[inp.dataset.pf]=v;
-  });
+  var hidePriceKeys={};
+  var packageData=null;
+
+  if(_mode==='package'){
+    // Package mode - all options included, collect package config
+    _opts.forEach(function(o){selectedKeys[o.key]=true;});
+    var pkgChecked=[];
+    panel.querySelectorAll('.ct-pkg-ck:checked').forEach(function(cb){pkgChecked.push(cb.dataset.key);});
+    var pkgLabel=(_pd.getElementById('ctPkgLabel').value.trim())||'Flight Package';
+    var pkgPrice=_pd.getElementById('ctPkgPrice').value.trim();
+    if(pkgChecked.length&&pkgPrice){
+      packageData={keys:pkgChecked,label:pkgLabel,price:pkgPrice};
+    }
+    // Non-packaged options still use their original prices
+    _opts.forEach(function(o){if(o.price)priceOverrides[o.key]=o.price;});
+  }else{
+    // Normal mode
+    panel.querySelectorAll('.ct-ck').forEach(function(cb){
+      if(cb.checked)selectedKeys[cb.dataset.key]=true;
+    });
+    if(!Object.keys(selectedKeys).length){alert('Please select at least one option.');return;}
+    panel.querySelectorAll('.ct-pi').forEach(function(inp){
+      var v=inp.value.trim();if(v)priceOverrides[inp.dataset.pf]=v;
+    });
+    panel.querySelectorAll('.ct-hp:checked').forEach(function(cb){
+      hidePriceKeys[cb.dataset.hpf]=true;
+    });
+  }
 
   var doc=parseSrcdoc(srcdoc);
   var pType=getProposalType(doc);
   var hasCarOption=!!doc.querySelector('[id*="-car-option"]');
   applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption);
 
+  // Apply hide price
+  Object.keys(hidePriceKeys).forEach(function(key){
+    var parts=key.split('-');
+    var priceEl=doc.getElementById(pType+'-'+parts[0]+'-'+parts[1]+'-total-price');
+    if(priceEl)priceEl.style.display='none';
+    // Also hide the currency span
+    var header=doc.getElementById(pType+'-'+parts[0]+'-'+parts[1]+'-header');
+    if(header){
+      var priceCell=header.querySelector('[id*="-total-price"]');
+      if(priceCell)priceCell.style.visibility='hidden';
+    }
+  });
+
+  // Apply package
+  if(packageData&&packageData.keys.length){
+    packageData.keys.forEach(function(key,idx){
+      var parts=key.split('-'),num=parts[0],type=parts[1];
+      var headerTable=doc.getElementById(pType+'-'+num+'-'+type+'-header');
+      if(!headerTable)return;
+      if(idx===0){
+        // First: set label and price
+        var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
+        if(titleEl)titleEl.innerHTML='<strong style="color:#ff2e5f">'+packageData.label+'</strong>';
+        var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
+        if(priceEl){
+          var walker=doc.createTreeWalker(priceEl,NodeFilter.SHOW_TEXT,null,false);
+          var node,last=null;
+          while((node=walker.nextNode())){if(/[\d,]+\.\d{2}/.test(node.nodeValue))last=node;}
+          if(last)last.nodeValue=last.nodeValue.replace(/[\d,]+\.\d{2}/,packageData.price);
+        }
+      }else{
+        // Rest: hide entire header table
+        headerTable.style.display='none';
+      }
+    });
+  }
+
   if(mode==='pdf'){
-    // For PDF use full document
     var fullOut='<!DOCTYPE html>'+doc.documentElement.outerHTML;
     var win=window.open('','_blank','width=900,height=900,scrollbars=yes');
     if(!win){alert('Please allow popups for this site.');return;}
@@ -479,14 +624,10 @@ function runTidy(mode){
     return;
   }
 
-  // Write transformed HTML back to iframe - user then clicks Sabre's Copy button
   var iframe=getIframe();
   if(!iframe){alert('Could not find proposal iframe.');return;}
-
   var btn=_pd.getElementById('ctDoCopy');
   if(btn){btn.textContent='⏳ Applying...';btn.disabled=true;}
-
-  var transformedHTML='<!DOCTYPE html>'+doc.documentElement.outerHTML;
 
   iframe.addEventListener('load',function onLoad(){
     iframe.removeEventListener('load',onLoad);
@@ -494,14 +635,11 @@ function runTidy(mode){
       btn.textContent='✓ Applied! Click Copy >';
       btn.style.background='#28a745';
       btn.disabled=false;
-      setTimeout(function(){
-        btn.textContent='📋 Apply';
-        btn.style.background='';
-      },6000);
+      setTimeout(function(){btn.textContent='📋 Apply';btn.style.background='';},6000);
     }
   },{once:true});
 
-  iframe.setAttribute('srcdoc',transformedHTML);
+  iframe.setAttribute('srcdoc','<!DOCTYPE html>'+doc.documentElement.outerHTML);
 }
 
 // ── Observer ──────────────────────────────────────────────────────────────────
