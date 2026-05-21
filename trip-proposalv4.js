@@ -281,7 +281,7 @@ function showPanel(){
       +'</div>';
   }).join('');
 
-  var panel='_pd.createElement('div');
+  var panel=_pd.createElement('div');
   panel.id='ctTidyPanel';
   panel.innerHTML=
     '<div id="ctTidyHeader">'
