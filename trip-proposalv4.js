@@ -2,7 +2,7 @@
 
 var ADDITIONAL_INFO='<table width="100%" style="margin-top:24px;border-collapse:collapse;font-family:Arial,sans-serif"><tr><td style="background:#f5f5f5;border:1px solid #e0e0e0;border-left:3px solid #ff2e5f;padding:14px 16px;border-radius:4px"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:8px">ADDITIONAL INFORMATION</strong><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">All passport and visa requirements are the responsibility of the traveller.</p><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">If you need more information about visas, passports, health and security for each country, please visit: <a href="https://www.fctgtravelnews.com/" style="color:#ff2e5f">Travel News</a></p><p style="margin:0 0 6px;font-size:11px;color:#333;line-height:1.5">All prices indicated are subject to change and availability. In the event of a refund request, some taxes may not be refunded.</p><p style="margin:0;font-size:11px;color:#333;line-height:1.5">For more information on these topics, please contact your dedicated team.</p></td></tr></table>';
 
-var IMPORTANT_NOTICE='<table width="100%" style="margin:8px 0;border-collapse:collapse"><tr><td style="padding:6px 12px;border:1px solid #e0e0e0;border-radius:3px;background:#fafafa"><span style="font-size:9px;color:#999;line-height:1.5">All prices are subject to change until tickets are issued. Airlines reserve the right to change surcharges, fare levels and taxes without notice. Corporate Traveller fees are not included and will be charged at time of invoicing per schedule of fees.</span></td></tr></table>';
+var IMPORTANT_NOTICE='<table width="100%" style="margin:8px 0 20px 0;border-collapse:collapse"><tr><td style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:3px;background:#fafafa"><span style="font-size:9px;color:#999;line-height:1.8;font-family:Arial,sans-serif">· All prices are subject to change until tickets are issued, even if tentatively holding.<br>· Airlines reserve the right to change surcharges, fare levels and taxes without notice.<br>· Corporate Traveller fees are not included in your quote and will be charged at time of invoicing per schedule of fees.</span></td></tr></table>';
 
 var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#fff;border:2px solid #ff9800;border-radius:6px;padding:12px 14px"><strong style="color:#ff9800;font-size:11px;display:block;margin-bottom:6px">⚠️ CAR RENTAL IMPORTANT INFORMATION</strong><ul style="font-size:10px;color:#333;margin:0;padding-left:18px;line-height:1.4"><li style="margin-bottom:4px">You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li style="margin-bottom:4px">Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li style="margin-bottom:4px">Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></td></tr></table>';
 
@@ -142,7 +142,7 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     headerRow.innerHTML='<td style="padding:10px 16px;border-bottom:1px solid #ebebeb">'
       +'<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>'
       +'<td style="vertical-align:middle">'
-      +(logoSrc?'<img src="'+logoSrc+'" style="height:24px;width:auto;display:block" alt="Corporate Traveller"/>':'')
+      +(logoSrc?'<img src="'+logoSrc+'" style="height:48px;width:auto;display:block" alt="Corporate Traveller"/>':'')
       +'</td>'
       +'<td style="vertical-align:middle;text-align:right">'
       +(propId?'<span style="display:inline-block;border:1px solid #e0e0e0;border-radius:4px;padding:2px 10px;font-size:9px;color:#666;font-family:Arial,sans-serif">Trip Proposal ID: <strong style="color:#333">'+propId+'</strong></span>':'')
@@ -263,39 +263,46 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
   });
 
   // 14. Outlook/email cleanup - remove role="presentation" and !important only
-  // Do NOT strip box-sizing - removing it causes padding to collapse in email clients
   doc.querySelectorAll('[role="presentation"]').forEach(function(el){el.removeAttribute('role');});
   doc.querySelectorAll('[style]').forEach(function(el){
     var s=el.getAttribute('style');
-    // Only strip !important from non-structural properties, preserve height !important on headers
     s=s.replace(/([^:]+):\s*[^;]+\s*!important\s*;?/g,function(m,prop){
-      if(/height/i.test(prop))return m; // preserve height !important for segment headers
+      if(/height/i.test(prop))return m;
       return m.replace(/\s*!important/,'');
     });
     el.setAttribute('style',s);
   });
 
-  // 14. Inject Outlook-safe padding overrides to compensate for box-sizing removal
-  // and generally ensure comfortable spacing when pasted into email clients
-  var outlookStyle=doc.createElement('style');
-  outlookStyle.textContent=
-    '.proposal-enhanced-padding{padding-top:8px;padding-right:16px;padding-bottom:8px;}'
-    +'.proposal-enhanced-padding-left-48px{padding-left:48px;}'
-    +'.proposal-enhanced-product-details-left-row{padding-top:8px;padding-bottom:8px;}'
-    +'.proposal-enhanced-product-details-left-bottom-row{padding-bottom:8px;padding-right:16px;padding-left:48px;}'
-    +'.proposal-enhanced-segment-header{padding:8px 16px;}'
-    +'.proposal-enhanced-segment-header-small{padding:8px 16px;}'
-    +'.proposal-enhanced-rate-breakdown{padding:8px 48px;}'
-    +'.proposal-enhanced-policy{padding:8px 16px 8px 48px;}'
-    +'.proposal-enhanced-agency-message-info{padding:8px 8px 8px 0;}'
-    +'.proposal-enhanced-agency-disclaimer-message-info{padding:0 16px 8px 16px;}'
-    +'.proposal-enhanced-main-header-padding{padding-left:16px;}'
-    +'.proposal-enhanced-price-break-down-table-wrapper{padding:8px 16px 8px 48px;}'
-    +'.proposal-enhanced-fare-rules-table{padding:0 16px 8px 48px;}'
-    +'.proposal-compact-product-details{padding:8px 16px;}'
-    +'.proposal-compact-segment-header{padding:8px 16px;}'
-    +'table{border-spacing:0;}';
-  doc.head.appendChild(outlookStyle);
+  // 14b. Apply padding inline directly to elements (survives Outlook stripping stylesheets)
+  var paddingMap=[
+    ['.proposal-enhanced-padding','padding-top:8px;padding-right:16px;padding-bottom:8px'],
+    ['.proposal-enhanced-padding-left-48px','padding-left:48px'],
+    ['.proposal-enhanced-product-details-left-row','padding-top:8px;padding-bottom:8px'],
+    ['.proposal-enhanced-product-details-left-bottom-row','padding-bottom:8px;padding-right:16px;padding-left:48px'],
+    ['.proposal-enhanced-segment-header','padding:8px 16px'],
+    ['.proposal-enhanced-segment-header-small','padding:8px 16px'],
+    ['.proposal-enhanced-rate-breakdown','padding:8px 48px'],
+    ['.proposal-enhanced-policy','padding:8px 16px 8px 48px'],
+    ['.proposal-enhanced-agency-message-info','padding:8px 8px 8px 0'],
+    ['.proposal-enhanced-agency-disclaimer-message-info','padding:0 16px 8px 16px'],
+    ['.proposal-enhanced-main-header-padding','padding-left:16px'],
+    ['.proposal-enhanced-fare-rules-table','padding:0 16px 8px 48px'],
+    ['.proposal-compact-product-details','padding:8px 16px'],
+    ['.proposal-compact-segment-header','padding:8px 16px'],
+    ['.proposal-compact-fare-rules-table','padding:0 16px 8px 16px'],
+    ['.proposal-enhanced-layover-clock-icon','padding:8px 12px 8px 20px'],
+    ['.proposal-enhanced-air-segment-icon','padding:8px 8px 8px 16px'],
+    ['.proposal-enhanced-segment-icon','padding:10px 8px 8px 16px'],
+  ];
+  paddingMap.forEach(function(pair){
+    try{
+      doc.querySelectorAll(pair[0]).forEach(function(el){
+        var existing=el.getAttribute('style')||'';
+        // Only add if not already inlined
+        el.setAttribute('style',existing+(existing&&!existing.endsWith(';')?';':'')+pair[1]+';');
+      });
+    }catch(e){}
+  });
 
   // 15. Print CSS
   var ps=doc.createElement('style');
@@ -473,8 +480,38 @@ function showPanel(){
     });
   });
 
-  // Apply merch to all flights
-  _pd.getElementById('ctMerchAllBtn').addEventListener('click',function(){
+  // Wire package mode live total
+  function updatePkgTotal(){
+    var total=0;
+    panel.querySelectorAll('.ct-pkg-ck:checked').forEach(function(cb){
+      var key=cb.dataset.key;
+      var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+key+'"]');
+      var mi=panel.querySelector('.ct-pkg-mi[data-mf="'+key+'"]');
+      var base=pi?parseFloat(pi.value)||0:parseFloat(cb.dataset.base)||0;
+      var merch=mi?parseFloat(mi.value)||0:0;
+      total+=base+merch;
+    });
+    var pkgMerch=parseFloat((_pd.getElementById('ctPkgMerch')||{}).value)||0;
+    total+=pkgMerch;
+    var totalEl=_pd.getElementById('ctPkgTotal');
+    if(totalEl)totalEl.textContent=total>0?'AUD '+total.toFixed(2):'—';
+  }
+  panel.addEventListener('change',function(e){
+    if(e.target.classList.contains('ct-pkg-ck'))updatePkgTotal();
+  });
+  panel.addEventListener('input',function(e){
+    if(e.target.classList.contains('ct-pkg-pi')||e.target.classList.contains('ct-pkg-mi')||e.target.id==='ctPkgMerch')updatePkgTotal();
+  });
+
+  // Wire pkg-mi to update pkg-pi live
+  panel.querySelectorAll('.ct-pkg-mi').forEach(function(mi){
+    mi.addEventListener('input',function(){
+      var key=mi.dataset.mf;
+      var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+key+'"]');
+      if(!pi)return;
+      pi.value=((parseFloat(pi.dataset.base)||0)+(parseFloat(mi.value)||0)).toFixed(2);
+    });
+  });
     var val=parseFloat(_pd.getElementById('ctMerchAllInput').value)||0;
     panel.querySelectorAll('.ct-mi[data-mf*="-air"],.ct-mi[data-mf$="-air"]').forEach(function(mi){
       // match air options only
@@ -516,14 +553,29 @@ function buildPkgRows(){
   if(!flightOpts.length)return'<div style="font-size:10px;color:#999;padding:8px 0">No flight options found.</div>';
   var rows=flightOpts.map(function(o){
     return'<div class="ct-pkg-row">'
-      +'<input type="checkbox" class="ct-pkg-ck" data-key="'+o.key+'" id="ctpkg'+o.key+'">'
+      +'<input type="checkbox" class="ct-pkg-ck" data-key="'+o.key+'" data-base="'+o.price+'" id="ctpkg'+o.key+'">'
       +'<label class="ct-pkg-label" for="ctpkg'+o.key+'">'+o.icon+' '+o.label+'</label>'
+      +(o.price
+        ?'<input type="text" class="ct-pkg-pi" data-pf="'+o.key+'" data-base="'+o.price+'" value="'+o.price+'" style="width:65px;font-size:10px;border:1px solid #ddd;border-radius:3px;padding:2px 4px;text-align:right;font-family:Arial">'
+         +'<span style="font-size:9px;color:#bbb;margin:0 2px">+$</span>'
+         +'<input type="text" class="ct-pkg-mi" data-mf="'+o.key+'" value="" placeholder="merch" style="width:40px;font-size:10px;border:1px solid #ffccd5;border-radius:3px;padding:2px 4px;text-align:right;font-family:Arial;background:#fff9fa">'
+        :'')
       +'</div>';
   }).join('');
   rows+='<div class="ct-pkg-inputs">'
-    +'<input type="text" id="ctPkgLabel" placeholder="Package label e.g. Flight Package">'
-    +'<input type="text" id="ctPkgPrice" placeholder="Package price e.g. 3500.00">'
-    +'<div class="ct-pkg-note">First selected option shows label + price. Remaining options show flight details only, no header price.</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'
+      +'<label style="font-size:9px;color:#999;flex:1">Package label:</label>'
+      +'<input type="text" id="ctPkgLabel" placeholder="e.g. Flight Package" style="flex:2">'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">'
+      +'<label style="font-size:9px;color:#999;flex:1">Package merch +$:</label>'
+      +'<input type="text" id="ctPkgMerch" placeholder="0.00" style="flex:2">'
+    +'</div>'
+    +'<div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px;border-top:1px solid #f0d0d8">'
+      +'<span style="font-size:9px;color:#666;font-weight:700">Package total:</span>'
+      +'<span id="ctPkgTotal" style="font-size:11px;font-weight:800;color:#ff2e5f">—</span>'
+    +'</div>'
+    +'<div class="ct-pkg-note">Checked options: first shows package label + total. Others show flight details only.</div>'
     +'</div>';
   return rows;
 }
@@ -548,17 +600,25 @@ function runTidy(mode){
   var packageData=null;
 
   if(_mode==='package'){
-    // Package mode - all options included, collect package config
+    // All options included in output
     _opts.forEach(function(o){selectedKeys[o.key]=true;});
     var pkgChecked=[];
     panel.querySelectorAll('.ct-pkg-ck:checked').forEach(function(cb){pkgChecked.push(cb.dataset.key);});
     var pkgLabel=(_pd.getElementById('ctPkgLabel').value.trim())||'Flight Package';
-    var pkgPrice=_pd.getElementById('ctPkgPrice').value.trim();
-    if(pkgChecked.length&&pkgPrice){
-      packageData={keys:pkgChecked,label:pkgLabel,price:pkgPrice};
+    var pkgMerch=parseFloat((_pd.getElementById('ctPkgMerch')||{}).value)||0;
+    // Sum individual option prices + merchs
+    var pkgTotal=pkgMerch;
+    pkgChecked.forEach(function(key){
+      var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+key+'"]');
+      pkgTotal+=pi?parseFloat(pi.value)||0:0;
+    });
+    // Non-packaged options keep their own prices
+    _opts.forEach(function(o){
+      if(pkgChecked.indexOf(o.key)===-1&&o.price)priceOverrides[o.key]=o.price;
+    });
+    if(pkgChecked.length){
+      packageData={keys:pkgChecked,label:pkgLabel,price:pkgTotal.toFixed(2)};
     }
-    // Non-packaged options still use their original prices
-    _opts.forEach(function(o){if(o.price)priceOverrides[o.key]=o.price;});
   }else{
     // Normal mode
     panel.querySelectorAll('.ct-ck').forEach(function(cb){
