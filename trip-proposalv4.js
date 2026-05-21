@@ -154,111 +154,92 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
   }
 
   // 13. Transform fare rules
-  function chipHTML(text,bg,color){
-    return'<span style="display:inline-block;background:'+bg+';color:'+color+';border-radius:4px;padding:2px 7px;font-size:9px;margin:2px 3px 2px 0;border:1px solid rgba(0,0,0,0.08)">'+text+'</span>';
+  function chipHTML(text,bg,color,border){
+    return'<span style="display:inline-block;background:'+bg+';color:'+color+';border-radius:3px;padding:1px 5px;font-size:9px;margin:1px 2px 1px 0;border:1px solid '+(border||'rgba(0,0,0,0.08)')+'">'+text+'</span>';
   }
-  function reformatFareValue(val,isExchange){
+  function sectionLabel(text){
+    return'<span style="font-size:8.5px;font-weight:800;color:#888;text-transform:uppercase;letter-spacing:.4px;margin-right:3px;margin-left:6px">'+text+'</span>';
+  }
+  function reformatFareValue(val){
     if(!val)return'';
     val=val.trim();if(!val)return'';
-    var parts=val.split(';').map(function(p){
+    return val.split(';').map(function(p){
       p=p.trim();if(!p)return null;
-      // Non-refundable check - just highlight those words
       var hasNR=/non.?refundable|no refund/i.test(p);
       var m=p.match(/\(([^)]+)\)\s*([\d,.]+)\s*(AUD|USD|EUR|GBP|NZD)?/i);
       if(m){
-        var descriptor=m[1].trim();
-        var amount=m[2].trim();
-        var currency=m[3]||'AUD';
-        var label=amount+' '+currency+' ('+descriptor+')';
-        if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong> '+label,'#fff0f0','#333');
-        return chipHTML(label,'#f5f5f5','#444');
+        var label=m[2]+(m[3]?' '+m[3]:'')+' ('+m[1].trim()+')';
+        if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong> '+label,'#fff0f0','#333','#f5c6c6');
+        return chipHTML(label,'#f5f5f5','#555');
       }
-      if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong>','#fff0f0','#333');
-      return chipHTML(p,'#f5f5f5','#444');
-    }).filter(Boolean);
-    var html=parts.join('');
-    if(isExchange)html+='<br><em style="font-size:9px;color:#999;margin-left:2px">Changes are subject to class availability and additional fare/tax difference applies.</em>';
-    return html;
+      if(hasNR)return chipHTML('<strong style="color:#d81525">NON REFUNDABLE</strong>','#fff0f0','#333','#f5c6c6');
+      return chipHTML(p,'#f5f5f5','#555');
+    }).filter(Boolean).join('');
   }
-  function reformatFlightConditions(val){
+  function reformatConditions(val){
     if(!val)return'';
     return val.split(';').map(function(p){
       p=p.trim();if(!p)return null;
       var isTTL=/ticketing time limit/i.test(p);
-      return chipHTML(
-        isTTL?'<strong>⏰ '+p+'</strong>':p,
-        isTTL?'#fff8e1':'#f0f4ff',
-        isTTL?'#7a5800':'#334'
-      );
+      return chipHTML(isTTL?'⏰ <strong>'+p+'</strong>':p,isTTL?'#fff8e1':'#f0f4ff',isTTL?'#7a5800':'#334',isTTL?'#ffe082':'#d0d8f0');
     }).filter(Boolean).join('');
   }
 
   doc.querySelectorAll('[id*="-fare-rules"]').forEach(function(el){
     if(!el.id.match(/^proposal-(enhanced|compact)-fare-rules$/))return;
-    var chips=[];
+    var inline='';
 
     var refundEl=el.querySelector('[id*="-penalties-refund-value"]');
     var refundVal=refundEl?refundEl.textContent.trim():'';
-    if(refundVal){
-      chips.push('<div style="margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Cancellation:</span>'+reformatFareValue(refundVal,false)+'</div>');
-    }
+    if(refundVal)inline+=sectionLabel('Cancellation:')+reformatFareValue(refundVal);
 
     var exchEl=el.querySelector('[id*="-penalties-exchange-value"]');
     var exchVal=exchEl?exchEl.textContent.trim():'';
-    if(exchVal){
-      chips.push('<div style="margin-bottom:4px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Changes:</span>'+reformatFareValue(exchVal,true)+'</div>');
-    }
+    if(exchVal)inline+=sectionLabel('Changes:')+reformatFareValue(exchVal);
 
     var condEl=el.querySelector('[id*="-flight-conditions-value"]');
     var condVal=condEl?condEl.textContent.trim():'';
-    if(condVal){
-      chips.push('<div style="margin-bottom:2px"><span style="font-size:9px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.4px;margin-right:4px">Conditions:</span>'+reformatFlightConditions(condVal)+'</div>');
-    }
+    if(condVal)inline+=sectionLabel('Conditions:')+reformatConditions(condVal);
 
-    if(!chips.length){el.style.display='none';return;}
+    if(!inline){el.style.display='none';return;}
 
-    el.innerHTML='<tr><td style="padding:10px 16px;border-top:1px solid #e8e8e8">'
-      +'<div style="font-size:9px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Fare Rules</div>'
-      +chips.join('')
+    var exchNote=exchVal?'<div style="font-size:8.5px;color:#aaa;font-style:italic;margin-top:3px;padding-left:2px">Changes are subject to class availability and additional fare/tax difference applies.</div>':'';
+
+    el.innerHTML='<tr><td style="padding:8px 16px;border-top:1px solid #ebebeb">'
+      +'<div style="font-size:8.5px;font-weight:800;color:#bbb;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Fare Rules</div>'
+      +'<div style="line-height:1.8">'+inline+'</div>'
+      +exchNote
       +'</td></tr>';
   });
 
-  // 13b. Aircraft/baggage - replace bold labels with icon inline format (both views)
-  // Enhanced view - aircraft label/value pairs (seats/meal already removed, aircraft+baggage remain)
+  // 13b. Aircraft/baggage - replace bold labels with icon inline format
   doc.querySelectorAll('[id*="-aircraft-label"]').forEach(function(label){
     var aircraftSpan=label.nextElementSibling;
-    // Find baggage label/value in same td
     var td=label.closest('td');
     if(!td)return;
     var baggageLabel=td.querySelector('[id*="-baggage-label"]');
     var baggageSpan=baggageLabel?baggageLabel.nextElementSibling:null;
     var aircraftText=aircraftSpan?aircraftSpan.textContent.trim():'';
     var baggageText=baggageSpan?baggageSpan.textContent.trim():'';
-    // Build replacement
     var parts=[];
     if(aircraftText)parts.push('✈ '+aircraftText);
     if(baggageText)parts.push('🧳 '+baggageText);
     if(!parts.length)return;
-    // Insert styled div before label, remove original elements
     var div=doc.createElement('div');
     div.style.cssText='font-size:10px;color:#888;font-style:italic;padding-top:4px;';
     div.textContent=parts.join(' · ');
-    // Remove all the original label+span pairs for aircraft and baggage
     [label,aircraftSpan,baggageLabel,baggageSpan].forEach(function(el){
       if(el&&el.parentNode)el.parentNode.removeChild(el);
     });
     td.appendChild(div);
   });
 
-  // 13c. Compact hotel rows - add small padding between each tr
+  // 13c. Compact hotel rows - padding between each tr
   doc.querySelectorAll('[id*="-hotel-segment-"][id*="-content"] table table tr').forEach(function(tr){
     var td=tr.querySelector('td');
-    if(td&&!td.getAttribute('style')){
-      td.style.paddingBottom='4px';
-    }else if(td){
-      var s=td.getAttribute('style');
-      if(s.indexOf('padding-bottom')===-1)td.setAttribute('style',s+';padding-bottom:4px');
-    }
+    if(!td)return;
+    var s=td.getAttribute('style')||'';
+    if(s.indexOf('padding-bottom')===-1)td.setAttribute('style',s+(s?';':'')+'padding-bottom:8px');
   });
 
   // 14. Outlook/email cleanup - remove role="presentation" and !important only
@@ -266,7 +247,11 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
   doc.querySelectorAll('[role="presentation"]').forEach(function(el){el.removeAttribute('role');});
   doc.querySelectorAll('[style]').forEach(function(el){
     var s=el.getAttribute('style');
-    s=s.replace(/\s*!important/g,'');
+    // Only strip !important from non-structural properties, preserve height !important on headers
+    s=s.replace(/([^:]+):\s*[^;]+\s*!important\s*;?/g,function(m,prop){
+      if(/height/i.test(prop))return m; // preserve height !important for segment headers
+      return m.replace(/\s*!important/,'');
+    });
     el.setAttribute('style',s);
   });
 
