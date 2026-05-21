@@ -294,7 +294,7 @@ function showPanel(){
     +'<div id="ctTidyBody">'
       +'<div id="ctTidyOpts">'+rows+'</div>'
       +'<div id="ctTidyFooter">'
-        +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Copy &amp; Apply</button>'
+        +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Apply</button>'
         +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 Print / Save PDF</button>'
       +'</div>'
     +'</div>';
@@ -363,37 +363,25 @@ function runTidy(mode){
     return;
   }
 
-  // For copy: write transformed srcdoc back to iframe, wait for load, click Sabre Copy
+  // Write transformed HTML back to iframe - user then clicks Sabre's Copy button
   var iframe=getIframe();
   if(!iframe){alert('Could not find proposal iframe.');return;}
 
   var btn=_pd.getElementById('ctDoCopy');
   if(btn){btn.textContent='⏳ Applying...';btn.disabled=true;}
 
-  // Use body.innerHTML for the srcdoc - preserves original structure Sabre expects
   var transformedHTML='<!DOCTYPE html>'+doc.documentElement.outerHTML;
 
   iframe.addEventListener('load',function onLoad(){
     iframe.removeEventListener('load',onLoad);
-    // Find and click Sabre's native Copy button
-    var sabreCopy=Array.from(
-      _pd.querySelectorAll('.trip-proposal-share-modal .modal-footer .action-buttons button')
-    ).find(function(b){return b.textContent.trim()==='Copy';});
-
-    if(sabreCopy){
-      sabreCopy.click();
-      if(btn){
-        btn.textContent='✓ Copied!';
-        btn.style.background='#28a745';
-        btn.disabled=false;
-        setTimeout(function(){
-          btn.textContent='📋 Copy & Apply';
-          btn.style.background='';
-        },2500);
-      }
-    }else{
-      if(btn){btn.textContent='📋 Copy & Apply';btn.disabled=false;}
-      alert('Could not find Sabre Copy button.');
+    if(btn){
+      btn.textContent='✓ Applied! Click Copy >';
+      btn.style.background='#28a745';
+      btn.disabled=false;
+      setTimeout(function(){
+        btn.textContent='📋 Apply';
+        btn.style.background='';
+      },6000);
     }
   },{once:true});
 
