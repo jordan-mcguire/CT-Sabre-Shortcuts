@@ -332,7 +332,7 @@ function runTidy(mode){
   try{
     navigator.clipboard.write([new ClipboardItem({
       'text/html':new Blob([out],{type:'text/html'}),
-      'text/plain':new Blob(['Trip Proposal',{type:'text/plain'}])
+'text/plain':new Blob(['Trip Proposal'],{type:'text/plain'})
     })]).then(function(){
       var btn=document.getElementById('ctDoCopy');
       if(!btn)return;
