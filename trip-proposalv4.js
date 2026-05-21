@@ -153,15 +153,39 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     disclaimer.parentNode.insertBefore(aiRow,disclaimer);
   }
 
-  // 13. Outlook/email cleanup - remove role="presentation", box-sizing, !important
+  // 13. Outlook/email cleanup - remove role="presentation" and !important only
+  // Do NOT strip box-sizing - removing it causes padding to collapse in email clients
   doc.querySelectorAll('[role="presentation"]').forEach(function(el){el.removeAttribute('role');});
   doc.querySelectorAll('[style]').forEach(function(el){
     var s=el.getAttribute('style');
-    s=s.replace(/box-sizing:[^;]+;?\s*/g,'').replace(/\s*!important/g,'');
+    s=s.replace(/\s*!important/g,'');
     el.setAttribute('style',s);
   });
 
-  // 14. Print CSS
+  // 14. Inject Outlook-safe padding overrides to compensate for box-sizing removal
+  // and generally ensure comfortable spacing when pasted into email clients
+  var outlookStyle=doc.createElement('style');
+  outlookStyle.textContent=
+    '.proposal-enhanced-padding{padding-top:8px;padding-right:16px;padding-bottom:8px;}'
+    +'.proposal-enhanced-padding-left-48px{padding-left:48px;}'
+    +'.proposal-enhanced-product-details-left-row{padding-top:8px;padding-bottom:8px;}'
+    +'.proposal-enhanced-product-details-left-bottom-row{padding-bottom:8px;padding-right:16px;padding-left:48px;}'
+    +'.proposal-enhanced-segment-header{padding:8px 16px;}'
+    +'.proposal-enhanced-segment-header-small{padding:8px 16px;}'
+    +'.proposal-enhanced-rate-breakdown{padding:8px 48px;}'
+    +'.proposal-enhanced-policy{padding:8px 16px 8px 48px;}'
+    +'.proposal-enhanced-agency-message-info{padding:8px 8px 8px 0;}'
+    +'.proposal-enhanced-agency-disclaimer-message-info{padding:0 16px 8px 16px;}'
+    +'.proposal-enhanced-main-header-padding{padding-left:16px;}'
+    +'.proposal-enhanced-price-break-down-table-wrapper{padding:8px 16px 8px 48px;}'
+    +'.proposal-enhanced-fare-rules-table{padding:0 16px 8px 48px;}'
+    +'.proposal-compact-product-details{padding:8px 16px;}'
+    +'.proposal-compact-segment-header{padding:8px 16px;}'
+    +'td,th{padding:4px 8px;}'  // fallback minimum cell padding
+    +'table{border-spacing:0;}';
+  doc.head.appendChild(outlookStyle);
+
+  // 15. Print CSS
   var ps=doc.createElement('style');
   ps.textContent='@media print{body{margin:0}@page{margin:1cm}.proposal-enhanced-page-break,.proposal-compact-page-break{page-break-inside:avoid}}';
   doc.head.appendChild(ps);
