@@ -71,7 +71,7 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
         var headerTable=doc.getElementById('proposal-enhanced-'+num+'-air-header');
         if(headerTable){
           var fnRow=doc.createElement('tr');
-          fnRow.innerHTML='<td colspan="2" style="padding:6px 16px 8px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;">Includes: '+paxParts.join(' · ')+'</td>';
+          fnRow.innerHTML='<td colspan="2" style="padding:6px 16px 8px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;text-align:right;">Quoted price includes: '+paxParts.join(' · ')+'</td>';
           var tbody=headerTable.querySelector('tbody')||headerTable;
           tbody.appendChild(fnRow);
         }
@@ -153,7 +153,94 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     disclaimer.parentNode.insertBefore(aiRow,disclaimer);
   }
 
-  // 13. Outlook/email cleanup - remove role="presentation" and !important only
+  // 13. Transform fare rules
+  function reformatFareValue(val){
+    if(!val)return'';
+    val=val.trim();
+    if(!val)return'';
+    // Check for non-refundable
+    if(/non.?refundable|no refund/i.test(val)){
+      return'<strong style="color:#d81525">'+val.toUpperCase()+'</strong>';
+    }
+    // Split on semicolons and reformat each part
+    var parts=val.split(';').map(function(p){
+      p=p.trim();
+      if(!p)return null;
+      // Extract amount e.g. "Refundable (before departure) 842.00 AUD"
+      // or "Changeable (after departure) 281.00 AUD"
+      var m=p.match(/(?:refundable|changeable|non.refundable)?\s*\(([^)]+)\)\s*([\d,.]+)\s*(AUD|USD|EUR|GBP|NZD)?/i);
+      if(m){
+        var descriptor=m[1].trim();
+        var amount=m[2].trim();
+        var currency=m[3]?m[3]:' ';
+        // highlight non-refundable within parts
+        if(/non.?refundable|no refund/i.test(p)){
+          return'<strong style="color:#d81525">'+amount+' '+currency+' ('+descriptor+')</strong>';
+        }
+        return amount+' '+currency+' ('+descriptor+')';
+      }
+      // fallback - highlight if non-refundable
+      if(/non.?refundable|no refund/i.test(p)){
+        return'<strong style="color:#d81525">'+p+'</strong>';
+      }
+      return p;
+    }).filter(Boolean);
+    return parts.join(' · ');
+  }
+
+  function reformatFlightConditions(val){
+    if(!val)return'';
+    // Split on semicolons
+    var parts=val.split(';').map(function(p){
+      p=p.trim();if(!p)return null;
+      // Bold ticketing time limit
+      if(/ticketing time limit/i.test(p)){
+        return'<strong>'+p+'</strong>';
+      }
+      return p;
+    }).filter(Boolean);
+    return parts.join(' · ');
+  }
+
+  var fareRulesTables=doc.querySelectorAll('[id*="-fare-rules"]');
+  fareRulesTables.forEach(function(el){
+    // Only process the outer fare-rules table (not sub-tables)
+    if(!el.id.match(/^proposal-(enhanced|compact)-fare-rules$/))return;
+    var rows=[];
+
+    // Cancellation penalties
+    var refundEl=el.querySelector('[id*="-penalties-refund-value"]');
+    var refundVal=refundEl?refundEl.textContent.trim():'';
+    if(refundVal){
+      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Cancellation penalties:</strong> <span style="font-size:11px;color:#444">'+reformatFareValue(refundVal)+'</span></td></tr>');
+    }
+
+    // Changes
+    var exchEl=el.querySelector('[id*="-penalties-exchange-value"]');
+    var exchVal=exchEl?exchEl.textContent.trim():'';
+    if(exchVal){
+      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Changes:</strong> <span style="font-size:11px;color:#444">'+reformatFareValue(exchVal)+'</span><br><em style="font-size:10px;color:#888">Changes are subject to class availability and additional fare/tax difference applies.</em></td></tr>');
+    }
+
+    // Flight conditions
+    var condEl=el.querySelector('[id*="-flight-conditions-value"]');
+    var condVal=condEl?condEl.textContent.trim():'';
+    if(condVal){
+      rows.push('<tr><td style="padding:4px 0"><strong style="font-size:11px;color:#333">Flight conditions:</strong> <span style="font-size:11px;color:#666">'+reformatFlightConditions(condVal)+'</span></td></tr>');
+    }
+
+    if(!rows.length){el.style.display='none';return;}
+
+    // Replace entire fare rules table content with clean version
+    el.innerHTML='<tr><td style="padding:12px 16px;background:#f8f8f8;border-top:1px solid #e5e5e5">'
+      +'<strong style="font-size:11px;color:#333;display:block;margin-bottom:6px">Fare Rules</strong>'
+      +'<table width="100%" cellpadding="0" cellspacing="0" border="0">'
+      +rows.join('')
+      +'</table>'
+      +'</td></tr>';
+  });
+
+  // 14. Outlook/email cleanup - remove role="presentation" and !important only
   // Do NOT strip box-sizing - removing it causes padding to collapse in email clients
   doc.querySelectorAll('[role="presentation"]').forEach(function(el){el.removeAttribute('role');});
   doc.querySelectorAll('[style]').forEach(function(el){
@@ -181,7 +268,6 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     +'.proposal-enhanced-fare-rules-table{padding:0 16px 8px 48px;}'
     +'.proposal-compact-product-details{padding:8px 16px;}'
     +'.proposal-compact-segment-header{padding:8px 16px;}'
-    +'td,th{padding:4px 8px;}'  // fallback minimum cell padding
     +'table{border-spacing:0;}';
   doc.head.appendChild(outlookStyle);
 
