@@ -10,33 +10,21 @@ var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collap
 function getIframe(){
   return document.querySelector('.share-container iframe');
 }
-
 function getSrcdoc(){
   var iframe=getIframe();
   return iframe?iframe.getAttribute('srcdoc'):null;
 }
-
-// Parse srcdoc into a live DOM document
 function parseSrcdoc(html){
-  var parser=new DOMParser();
-  // srcdoc is HTML-entity-encoded in the attribute - the browser already decoded it for getAttribute
-  return parser.parseFromString(html,'text/html');
+  return new DOMParser().parseFromString(html,'text/html');
 }
-
-// Detect proposal type from doc
 function getProposalType(doc){
   return doc.querySelector('[class*="proposal-compact"]')?'proposal-compact':'proposal-enhanced';
 }
 
-// Find all option tables in order, return array of {key, num, type, label, icon, el}
-function findOptions(doc, pType){
-  var opts=[];
-  var seen={};
-  // querySelectorAll returns in DOM order
-  var tables=doc.querySelectorAll('table[id]');
-  tables.forEach(function(t){
+function findOptions(doc,pType){
+  var opts=[],seen={};
+  doc.querySelectorAll('table[id]').forEach(function(t){
     var id=t.id||'';
-    // Match: proposal-enhanced-3-car-option OR proposal-compact-1-hotel-option
     var m=id.match(/^proposal-(?:enhanced|compact)-(\d+)-(air|hotel|car)-option$/);
     if(!m)return;
     var num=m[1],type=m[2],key=num+'-'+type;
@@ -44,85 +32,66 @@ function findOptions(doc, pType){
     seen[key]=true;
     var icon=type==='air'?'✈':type==='hotel'?'🏨':'🚗';
     var displayType=type==='air'?'Flight':type==='hotel'?'Hotel':'Car';
-    // Read display label from the title cell if present
     var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
-    var rawLabel=titleEl?titleEl.textContent.trim():'';
-    // e.g. "Hotel Option 1" -> "Hotel Option 1", fallback to constructed
-    var label=rawLabel||(displayType+' Option '+num);
-    // Extract price
+    var label=(titleEl?titleEl.textContent.trim():'')||(displayType+' Option '+num);
     var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
     var price='';
-    if(priceEl){
-      var txt=priceEl.textContent.replace(/\s+/g,' ').trim();
-      var pm=txt.match(/([\d,]+\.\d{2})/);
-      if(pm)price=pm[1];
-    }
+    if(priceEl){var pm=priceEl.textContent.replace(/\s+/g,' ').trim().match(/([\d,]+\.\d{2})/);if(pm)price=pm[1];}
     opts.push({key:key,num:num,type:type,label:label,icon:icon,price:price,el:t});
   });
   return opts;
 }
 
 // ── DOM transforms ────────────────────────────────────────────────────────────
-function applyTransforms(doc, pType, selectedKeys, priceOverrides, hasCarOption){
-  // 1. Remove role="presentation" (Outlook compat) - skip, harmless to leave
-  // 2. Colour option titles
+function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
+  // 1. Colour option titles
   ['air','hotel','car'].forEach(function(type){
-    doc.querySelectorAll('[id*="-'+type+'-segment-title"]').forEach(function(el){
-      el.style.color='#ff2e5f';
-    });
+    doc.querySelectorAll('[id*="-'+type+'-segment-title"]').forEach(function(el){el.style.color='#ff2e5f';});
   });
 
-  // 3. Remove emission, seats, meal labels (enhanced only - compact doesn't have them)
+  // 2. Remove emission, seats, meal labels
   doc.querySelectorAll('[id*="-emission-label"],[id*="-seats-label"],[id*="-meal-label"]').forEach(function(el){
-    // Remove the label strong and its following span
     var next=el.nextSibling;
-    while(next&&next.nodeType===3)next=next.nextSibling; // skip text nodes
+    while(next&&next.nodeType===3)next=next.nextSibling;
     if(next&&next.tagName==='SPAN')next.parentNode.removeChild(next);
     el.parentNode.removeChild(el);
   });
 
-  // 4. Extract passenger summary from price breakdown (enhanced only), inject as footnote, then remove breakdown
+  // 3. Extract passenger summary then remove price breakdown (enhanced only)
   doc.querySelectorAll('.proposal-enhanced-price-break-down-table-wrapper').forEach(function(wrapper){
-    // Find which option this belongs to by walking up to the option table
     var optTable=wrapper;
     while(optTable&&!(/proposal-enhanced-\d+-(air|hotel|car)-option/.test(optTable.id||'')))optTable=optTable.parentNode;
-
-    // Only do passenger summary for air options
     if(optTable&&/proposal-enhanced-\d+-air-option/.test(optTable.id||'')){
       var paxParts=[];
       wrapper.querySelectorAll('[id*="price-break-down-table-"][id$="-row"]').forEach(function(row){
         var cells=row.querySelectorAll('td');
         if(cells.length<5)return;
-        var type=cells[0].textContent.trim();
+        var pType2=cells[0].textContent.trim();
         var qty=cells[4].textContent.trim().replace('x ','');
-        if(type&&qty)paxParts.push(qty+'x '+type);
+        if(pType2&&qty)paxParts.push(qty+'x '+pType2);
       });
       if(paxParts.length){
-        // Find the header table for this option to append footnote after it
         var num=(optTable.id.match(/proposal-enhanced-(\d+)-air-option/)||[])[1];
         var headerTable=doc.getElementById('proposal-enhanced-'+num+'-air-header');
         if(headerTable){
           var fnRow=doc.createElement('tr');
-          fnRow.innerHTML='<td colspan="2" style="padding:4px 16px 6px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;">Includes: '+paxParts.join(' · ')+'</td>';
-          headerTable.querySelector('tbody')?headerTable.querySelector('tbody').appendChild(fnRow):headerTable.appendChild(fnRow);
+          fnRow.innerHTML='<td colspan="2" style="padding:6px 16px 8px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;">Includes: '+paxParts.join(' · ')+'</td>';
+          var tbody=headerTable.querySelector('tbody')||headerTable;
+          tbody.appendChild(fnRow);
         }
       }
     }
-
-    // Now remove the breakdown wrapper row
-    var tr=wrapper;
-    while(tr&&tr.tagName!=='TR')tr=tr.parentNode;
+    var tr=wrapper;while(tr&&tr.tagName!=='TR')tr=tr.parentNode;
     if(tr)tr.parentNode.removeChild(tr);
   });
 
-  // 5. Remove hotel images
+  // 4. Remove hotel images
   doc.querySelectorAll('[id*="-hotel-images"]').forEach(function(el){
-    var tr=el;
-    while(tr&&tr.tagName!=='TR')tr=tr.parentNode;
+    var tr=el;while(tr&&tr.tagName!=='TR')tr=tr.parentNode;
     if(tr)tr.parentNode.removeChild(tr);
   });
 
-  // 6. Remove emission rows for compact
+  // 5. Remove emission rows for compact
   if(pType==='proposal-compact'){
     doc.querySelectorAll('[id*="-emission"]').forEach(function(el){
       var tr=el;while(tr&&tr.tagName!=='TR')tr=tr.parentNode;
@@ -130,93 +99,64 @@ function applyTransforms(doc, pType, selectedKeys, priceOverrides, hasCarOption)
     });
   }
 
-  // 7. Fix alignment - left-align all elements
-  doc.querySelectorAll('[align="center"]').forEach(function(el){
+  // 6. Fix alignment - ONLY the outer body-level centering td, not inner cells
+  // The proposal wraps everything in <td align="center" valign="top" width="100%">
+  // which causes Outlook to center the whole thing. Fix only those.
+  doc.querySelectorAll('td[align="center"][width="100%"]').forEach(function(el){
     el.setAttribute('align','left');
   });
-  // Also fix body and outermost table
-  if(doc.body)doc.body.setAttribute('align','left');
-  var outerTable=doc.getElementById('trip-preview');
-  if(outerTable)outerTable.setAttribute('align','left');
 
-  // 8. Colour "Flight/Hotel/Car Option N" text in headers
+  // 7. Colour option title strongs
   doc.querySelectorAll('strong').forEach(function(el){
-    var txt=el.textContent.trim();
-    if(/^(Flight|Hotel|Car) Option \d+$/.test(txt)){
-      el.style.color='#ff2e5f';
-    }
+    if(/^(Flight|Hotel|Car) Option \d+$/.test(el.textContent.trim()))el.style.color='#ff2e5f';
   });
 
-  // 9. Apply price overrides
+  // 8. Apply price overrides - use a TreeWalker on the parsed doc's context
   Object.keys(priceOverrides).forEach(function(key){
     var newPrice=priceOverrides[key];
     if(!newPrice)return;
-    var parts=key.split('-');var num=parts[0],type=parts[1];
+    var parts=key.split('-'),num=parts[0],type=parts[1];
     var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
     if(!priceEl)return;
-    // Find the price text node - it's inside nested spans
-    // The structure is: <span class="text-style-info-4">...<span>&nbsp;15179.26</span></span>
-    // We replace the last text node that looks like a price
-    var walker=document.createTreeWalker(priceEl,NodeFilter.SHOW_TEXT,null,false);
+    var walker=doc.createTreeWalker(priceEl,NodeFilter.SHOW_TEXT,null,false);
     var node,last=null;
-    while((node=walker.nextNode())){
-      if(/[\d,]+\.\d{2}/.test(node.nodeValue))last=node;
-    }
+    while((node=walker.nextNode())){if(/[\d,]+\.\d{2}/.test(node.nodeValue))last=node;}
     if(last)last.nodeValue=last.nodeValue.replace(/[\d,]+\.\d{2}/,newPrice);
   });
 
-  // 10. Hide unselected options (keep DOM intact so CSS still works)
+  // 9. Hide unselected options + their spacers
   doc.querySelectorAll('table[id]').forEach(function(t){
-    var id=t.id||'';
-    var m=id.match(/^proposal-(?:enhanced|compact)-(\d+)-(air|hotel|car)-option$/);
+    var m=(t.id||'').match(/^proposal-(?:enhanced|compact)-(\d+)-(air|hotel|car)-option$/);
     if(!m)return;
-    var key=m[1]+'-'+m[2];
-    if(!selectedKeys[key]){
+    if(!selectedKeys[m[1]+'-'+m[2]]){
       t.style.display='none';
-      // Also hide the spacer that follows (enhanced only - role="none" table)
       var next=t.nextSibling;
       while(next&&next.nodeType===3)next=next.nextSibling;
       if(next&&next.getAttribute&&next.getAttribute('role')==='none')next.style.display='none';
     }
   });
 
-  // 11. Strip box-sizing and !important from inline styles (Outlook compat)
-  doc.querySelectorAll('[style]').forEach(function(el){
-    var s=el.getAttribute('style');
-    s=s.replace(/box-sizing:[^;]+;?/g,'').replace(/\s*!important/g,'');
-    el.setAttribute('style',s);
-  });
-
-  // 12. Set max-width on outermost table
+  // 10. Max width on outer table
   var preview=doc.getElementById('trip-preview');
-  if(preview){
-    preview.setAttribute('width','800');
-    preview.style.maxWidth='800px';
-    preview.style.margin='0 auto';
+  if(preview){preview.setAttribute('width','1000');preview.style.maxWidth='1000px';}
+
+  // 11. Insert Important Notice + car warning before options body
+  var bodyEl=doc.getElementById(pType==='proposal-compact'?'proposal-compact-body':'proposal-enhanced-body');
+  if(bodyEl){
+    var noticeRow=doc.createElement('tr');
+    noticeRow.innerHTML='<td>'+IMPORTANT_NOTICE+(hasCarOption?CAR_WARNING:'')+'</td>';
+    bodyEl.parentNode.insertBefore(noticeRow,bodyEl);
   }
 
-  // 13. Insert Important Notice after header row, before first option
-  var body=doc.getElementById(pType===('proposal-compact')?'proposal-compact-body':'proposal-enhanced-body');
-  if(body){
-    var noticeDiv=doc.createElement('tr');
-    noticeDiv.innerHTML='<td>'+IMPORTANT_NOTICE+(hasCarOption?CAR_WARNING:'')+'</td>';
-    body.parentNode.insertBefore(noticeDiv,body);
-  }
-
-  // 14. Style passenger block
+  // 12. Style passenger name block
   var paxEl=doc.getElementById(pType+'-passengers-list');
   if(paxEl&&paxEl.textContent.trim()){
-    var paxName=paxEl.textContent.trim();
-    var paxContainer=paxEl.closest('td');
-    if(paxContainer){
-      // Insert styled pax block before the body options
-      var paxRow=doc.createElement('tr');
-      paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 14px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxName+'</span></div></td>';
-      if(body)body.parentNode.insertBefore(paxRow,body);
-    }
+    var paxRow=doc.createElement('tr');
+    paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 16px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxEl.textContent.trim()+'</span></div></td>';
+    if(bodyEl)bodyEl.parentNode.insertBefore(paxRow,bodyEl);
   }
 
-  // 15. Append Additional Information at bottom
+  // 13. Append Additional Information before disclaimer
   var disclaimer=doc.getElementById(pType+'-agency-disclaimer-message');
   if(disclaimer){
     var aiRow=doc.createElement('tr');
@@ -224,18 +164,17 @@ function applyTransforms(doc, pType, selectedKeys, priceOverrides, hasCarOption)
     disclaimer.parentNode.insertBefore(aiRow,disclaimer);
   }
 
-  // 16. Add print CSS
-  var printStyle=doc.createElement('style');
-  printStyle.textContent='@media print{body{margin:0}table{max-width:800px!important}@page{margin:1cm}.proposal-enhanced-page-break,.proposal-compact-page-break{page-break-inside:avoid}}';
-  doc.head.appendChild(printStyle);
+  // 14. Print CSS
+  var ps=doc.createElement('style');
+  ps.textContent='@media print{body{margin:0}table{max-width:1000px!important}@page{margin:1cm}.proposal-enhanced-page-break,.proposal-compact-page-break{page-break-inside:avoid}}';
+  doc.head.appendChild(ps);
 }
 
-// Serialize doc back to HTML string
 function serializeDoc(doc){
   return '<!DOCTYPE html>'+doc.documentElement.outerHTML;
 }
 
-// ── Panel UI ──────────────────────────────────────────────────────────────────
+// ── Inject TIDY button ────────────────────────────────────────────────────────
 function injectTidyButton(){
   var modal=document.querySelector('.trip-proposal-share-modal');
   if(!modal||document.getElementById('ctTidyButton'))return;
@@ -248,25 +187,47 @@ function injectTidyButton(){
     var ts=document.createElement('style');ts.id='ctTidyStyle';
     ts.textContent=
       '.ct-tidy-btn{background-color:#ff2e5f!important;color:#fff!important;}'
-      +'#ctTidyPanel{position:absolute;bottom:56px;left:0;right:0;background:#fff;'
-      +'border-top:2px solid #ff2e5f;padding:12px 16px;z-index:9999;'
-      +'font-family:Arial,sans-serif;font-size:11px;box-shadow:0 -4px 12px rgba(0,0,0,.15);}'
-      +'#ctTidyPanel .ct-pt{font-size:10px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}'
-      +'#ctTidyPanel .ct-or{display:flex;align-items:center;gap:8px;margin-bottom:5px;}'
-      +'#ctTidyPanel .ct-or input[type=checkbox]{accent-color:#ff2e5f;width:13px;height:13px;flex-shrink:0;cursor:pointer;}'
-      +'#ctTidyPanel .ct-ol{flex:1;font-weight:600;color:#333;cursor:pointer;}'
-      +'#ctTidyPanel .ct-pi{border:1px solid #ddd;border-radius:4px;padding:3px 7px;font-size:11px;width:78px;text-align:right;font-family:Arial,sans-serif;}'
+
+      // Panel - fixed, flush to right of modal
+      +'#ctTidyPanel{'
+      +'position:fixed;top:80px;z-index:1000010;'
+      +'background:#fff;border:1.5px solid #f0d0d8;border-radius:10px 0 0 10px;'
+      +'box-shadow:-4px 4px 18px rgba(0,0,0,.18);'
+      +'font-family:Aptos,Arial,sans-serif;font-size:11px;'
+      +'width:260px;transition:width 0.2s ease;overflow:hidden;}'
+      +'#ctTidyPanel.ct-minimized{width:36px;}'
+
+      +'#ctTidyPanelInner{padding:12px 14px;}'
+      +'#ctTidyPanel.ct-minimized #ctTidyPanelInner{display:none;}'
+
+      // Minimize tab - always visible on left edge
+      +'#ctTidyTab{'
+      +'position:absolute;left:0;top:0;bottom:0;width:36px;'
+      +'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+      +'cursor:pointer;background:linear-gradient(135deg,#ff2e5f,#ff6b9d);'
+      +'border-radius:8px 0 0 8px;gap:4px;}'
+      +'#ctTidyTab span{color:#fff;font-size:9px;font-weight:800;writing-mode:vertical-rl;'
+      +'text-orientation:mixed;transform:rotate(180deg);letter-spacing:.5px;text-transform:uppercase;}'
+      +'#ctTidyTab .ct-tabarrow{color:rgba(255,255,255,.8);font-size:12px;}'
+
+      +'#ctTidyPanelInner{padding:10px 12px 12px 48px;}'
+
+      +'#ctTidyPanel .ct-pt{font-size:9px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;}'
+      +'#ctTidyPanel .ct-or{display:flex;align-items:center;gap:6px;margin-bottom:5px;}'
+      +'#ctTidyPanel .ct-or input[type=checkbox]{accent-color:#ff2e5f;width:12px;height:12px;flex-shrink:0;cursor:pointer;}'
+      +'#ctTidyPanel .ct-ol{flex:1;font-weight:600;color:#333;cursor:pointer;font-size:10.5px;}'
+      +'#ctTidyPanel .ct-pi{border:1px solid #ddd;border-radius:4px;padding:3px 6px;font-size:10px;width:70px;text-align:right;font-family:Arial,sans-serif;}'
       +'#ctTidyPanel .ct-pi:focus{border-color:#ff2e5f;outline:none;}'
-      +'#ctTidyPanel .ct-ml{font-size:9px;color:#999;margin:0 2px;white-space:nowrap;}'
-      +'#ctTidyPanel .ct-mi{border:1px solid #ffccd5;border-radius:4px;padding:3px 7px;font-size:11px;width:58px;text-align:right;font-family:Arial,sans-serif;background:#fff9fa;}'
+      +'#ctTidyPanel .ct-ml{font-size:9px;color:#999;white-space:nowrap;}'
+      +'#ctTidyPanel .ct-mi{border:1px solid #ffccd5;border-radius:4px;padding:3px 6px;font-size:10px;width:50px;text-align:right;font-family:Arial,sans-serif;background:#fff9fa;}'
       +'#ctTidyPanel .ct-mi:focus{border-color:#ff2e5f;outline:none;}'
-      +'#ctTidyPanel .ct-br{display:flex;gap:8px;margin-top:10px;}'
-      +'#ctTidyPanel .ct-ab{flex:1;padding:7px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:Arial,sans-serif;}'
+      +'#ctTidyPanel .ct-div{height:1px;background:#f0d0d8;margin:8px 0;}'
+      +'#ctTidyPanel .ct-br{display:flex;flex-direction:column;gap:6px;margin-top:10px;}'
+      +'#ctTidyPanel .ct-ab{width:100%;padding:7px;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;text-align:center;}'
       +'#ctTidyPanel .ct-cb{background:#ff2e5f;color:#fff;}'
       +'#ctTidyPanel .ct-cb:hover{background:#d4234e;}'
       +'#ctTidyPanel .ct-pb{background:#f5f5f5;color:#333;border:1px solid #ddd;}'
-      +'#ctTidyPanel .ct-pb:hover{background:#e8e8e8;}'
-      +'#ctTidyPanel .ct-xb{position:absolute;top:8px;right:10px;background:none;border:none;font-size:16px;cursor:pointer;color:#999;padding:0;line-height:1;}';
+      +'#ctTidyPanel .ct-pb:hover{background:#e8e8e8;}';
     document.head.appendChild(ts);
   }
 
@@ -278,10 +239,25 @@ function injectTidyButton(){
   wrap.querySelector('button').addEventListener('click',showPanel);
 }
 
+// Position panel flush to right edge of modal
+function positionPanel(){
+  var panel=document.getElementById('ctTidyPanel');
+  if(!panel)return;
+  var modal=document.querySelector('.trip-proposal-share-modal');
+  if(!modal)return;
+  var rect=modal.getBoundingClientRect();
+  panel.style.left=(rect.right)+'px';
+}
+
 var _opts=[];
+var _minimized=false;
 
 function showPanel(){
-  if(document.getElementById('ctTidyPanel'))return;
+  if(document.getElementById('ctTidyPanel')){
+    // Toggle minimize if already open
+    toggleMinimize();
+    return;
+  }
   var srcdoc=getSrcdoc();
   if(!srcdoc){alert('Could not find proposal. Click Share first.');return;}
   var doc=parseSrcdoc(srcdoc);
@@ -289,38 +265,43 @@ function showPanel(){
   _opts=findOptions(doc,pType);
   if(!_opts.length){alert('No options found in proposal.');return;}
 
-  var modal=document.querySelector('.trip-proposal-share-modal .modal-content');
-  if(!modal)return;
-  modal.style.position='relative';
-
   var rows=_opts.map(function(o){
     return '<div class="ct-or">'
       +'<input type="checkbox" checked class="ct-ck" data-key="'+o.key+'" id="ctck'+o.key+'">'
       +'<label class="ct-ol" for="ctck'+o.key+'">'+o.icon+' '+o.label+'</label>'
       +(o.price
         ?'<input class="ct-pi" type="text" value="'+o.price+'" data-pf="'+o.key+'" data-base="'+o.price+'" placeholder="Price">'
-         +'<span class="ct-ml">+merch</span>'
-         +'<input class="ct-mi" type="text" value="" data-mf="'+o.key+'" placeholder="0.00">'
+         +'<span class="ct-ml">+$</span>'
+         +'<input class="ct-mi" type="text" value="" data-mf="'+o.key+'" placeholder="merch">'
         :'')
       +'</div>';
   }).join('');
 
   var panel=document.createElement('div');
   panel.id='ctTidyPanel';
-  panel.innerHTML='<button class="ct-xb" id="ctXPanel">&times;</button>'
-    +'<div class="ct-pt">Options to include</div>'
-    +rows
-    +'<div class="ct-br">'
-    +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Copy to Clipboard</button>'
-    +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 Print / Save PDF</button>'
+  panel.innerHTML=
+    '<div id="ctTidyTab">'
+      +'<span class="ct-tabarrow" id="ctTabArrow">◀</span>'
+      +'<span>TIDY</span>'
+    +'</div>'
+    +'<div id="ctTidyPanelInner">'
+      +'<div class="ct-pt">Options to include</div>'
+      +rows
+      +'<div class="ct-div"></div>'
+      +'<div class="ct-br">'
+        +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Copy &amp; Apply</button>'
+        +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 Print / Save PDF</button>'
+      +'</div>'
     +'</div>';
 
-  modal.appendChild(panel);
-  document.getElementById('ctXPanel').onclick=function(){panel.remove();};
-  document.getElementById('ctDoCopy').onclick=function(){runTidy('copy');};
-  document.getElementById('ctDoPDF').onclick=function(){runTidy('pdf');};
+  document.body.appendChild(panel);
+  positionPanel();
 
-  // Wire merch inputs to update price inputs live
+  document.getElementById('ctTidyTab').addEventListener('click',toggleMinimize);
+  document.getElementById('ctDoCopy').addEventListener('click',function(){runTidy('copy');});
+  document.getElementById('ctDoPDF').addEventListener('click',function(){runTidy('pdf');});
+
+  // Wire merch inputs
   panel.querySelectorAll('.ct-mi').forEach(function(mi){
     mi.addEventListener('input',function(){
       var key=mi.dataset.mf;
@@ -331,6 +312,19 @@ function showPanel(){
       pi.value=(base+merch).toFixed(2);
     });
   });
+
+  // Reposition on scroll/resize
+  window.addEventListener('resize',positionPanel);
+  window.addEventListener('scroll',positionPanel,true);
+}
+
+function toggleMinimize(){
+  var panel=document.getElementById('ctTidyPanel');
+  if(!panel)return;
+  _minimized=!_minimized;
+  panel.classList.toggle('ct-minimized',_minimized);
+  var arrow=document.getElementById('ctTabArrow');
+  if(arrow)arrow.textContent=_minimized?'▶':'◀';
 }
 
 // ── Core ──────────────────────────────────────────────────────────────────────
@@ -340,72 +334,59 @@ function runTidy(mode){
 
   var panel=document.getElementById('ctTidyPanel');
 
-  // Collect selections
   var selectedKeys={};
   panel.querySelectorAll('.ct-ck').forEach(function(cb){
     if(cb.checked)selectedKeys[cb.dataset.key]=true;
   });
   if(!Object.keys(selectedKeys).length){alert('Please select at least one option.');return;}
 
-  // Collect price overrides
   var priceOverrides={};
   panel.querySelectorAll('.ct-pi').forEach(function(inp){
     var v=inp.value.trim();
     if(v)priceOverrides[inp.dataset.pf]=v;
   });
 
-  // Parse fresh doc each time
   var doc=parseSrcdoc(srcdoc);
   var pType=getProposalType(doc);
-
-  // Detect car
   var hasCarOption=!!doc.querySelector('[id*="-car-option"]');
 
-  // Apply all transforms
   applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption);
 
   var out=serializeDoc(doc);
 
   if(mode==='pdf'){
-    var win=window.open('','_blank','width=800,height=900,scrollbars=yes');
+    var win=window.open('','_blank','width=900,height=900,scrollbars=yes');
     if(!win){alert('Please allow popups for this site.');return;}
-    win.document.open();
-    win.document.write(out);
-    win.document.close();
-    // Small delay to let images/styles load
+    win.document.open();win.document.write(out);win.document.close();
     setTimeout(function(){win.print();},800);
     return;
   }
 
-  // Copy to clipboard
-  try{
-    navigator.clipboard.write([new ClipboardItem({
-      'text/html':new Blob([out],{type:'text/html'}),
-      'text/plain':new Blob(['Trip Proposal'],{type:'text/plain'})
-    })]).then(function(){
-      var btn=document.getElementById('ctDoCopy');
-      if(!btn)return;
-      var orig=btn.textContent;
-      btn.textContent='✓ Copied!';
-      btn.style.background='#28a745';
-      setTimeout(function(){btn.textContent=orig;btn.style.background='';},2000);
-    }).catch(function(e){
-      fallbackCopy(out);
-    });
-  }catch(e){
-    fallbackCopy(out);
-  }
-}
+  // Write transformed HTML back to iframe srcdoc, then trigger Sabre's Copy button
+  var iframe=getIframe();
+  if(!iframe){alert('Could not find proposal iframe.');return;}
+  iframe.setAttribute('srcdoc',out);
 
-function fallbackCopy(html){
-  var ta=document.createElement('textarea');
-  ta.value=html;
-  ta.style.cssText='position:fixed;top:-9999px';
-  document.body.appendChild(ta);
-  ta.select();
-  try{document.execCommand('copy');alert('Copied (plain text fallback - rich copy not supported in this browser).');}
-  catch(e){alert('Copy failed: '+e.message);}
-  document.body.removeChild(ta);
+  // Find Sabre's native Copy button and click it after a short delay
+  setTimeout(function(){
+    var sabreCopy=Array.from(
+      document.querySelectorAll('.trip-proposal-share-modal .modal-footer .action-buttons button')
+    ).find(function(b){return b.textContent.trim()==='Copy';});
+
+    if(sabreCopy){
+      sabreCopy.click();
+      // Flash feedback on our button
+      var btn=document.getElementById('ctDoCopy');
+      if(btn){
+        var orig=btn.textContent;
+        btn.textContent='✓ Copied!';
+        btn.style.background='#28a745';
+        setTimeout(function(){btn.textContent=orig;btn.style.background='';},2000);
+      }
+    }else{
+      alert('Could not find Sabre Copy button.');
+    }
+  },300);
 }
 
 // ── Observer ──────────────────────────────────────────────────────────────────
