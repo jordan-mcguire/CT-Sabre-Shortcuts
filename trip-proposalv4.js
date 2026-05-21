@@ -7,7 +7,9 @@ var IMPORTANT_NOTICE='<table width="100%" style="margin:16px 0;border-collapse:c
 var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#fff;border:2px solid #ff9800;border-radius:6px;padding:12px 14px"><strong style="color:#ff9800;font-size:11px;display:block;margin-bottom:6px">⚠️ CAR RENTAL IMPORTANT INFORMATION</strong><ul style="font-size:10px;color:#333;margin:0;padding-left:18px;line-height:1.4"><li style="margin-bottom:4px">You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li style="margin-bottom:4px">Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li style="margin-bottom:4px">Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></td></tr></table>';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function getIframe(){return document.querySelector('.share-container iframe');}
+// Sabre runs our script inside a child iframe - all UI elements live in parent
+var _pd=(window.parent&&window.parent.document)||document;
+function getIframe(){return _pd.querySelector('.share-container iframe');}
 function getSrcdoc(){var i=getIframe();return i?i.getAttribute('srcdoc'):null;}
 function parseSrcdoc(html){return new DOMParser().parseFromString(html,'text/html');}
 function getProposalType(doc){return doc.querySelector('[class*="proposal-compact"]')?'proposal-compact':'proposal-enhanced';}
@@ -172,8 +174,8 @@ function serializeDoc(doc){
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 function injectStyles(){
-  if(document.getElementById('ctTidyStyle'))return;
-  var ts=document.createElement('style');ts.id='ctTidyStyle';
+  if(_pd.getElementById('ctTidyStyle'))return;
+  var ts=_pd.createElement('style');ts.id='ctTidyStyle';
   ts.textContent=
     '.ct-tidy-btn{background-color:#ff2e5f!important;color:#fff!important;}'
 
@@ -225,19 +227,19 @@ function injectStyles(){
     +'#ctTidyPanel .ct-cb:hover{background:#d4234e;}'
     +'#ctTidyPanel .ct-pb{background:#f5f5f5;color:#333;border:1px solid #ddd;}'
     +'#ctTidyPanel .ct-pb:hover{background:#e8e8e8;}';
-  document.head.appendChild(ts);
+  _pd.head.appendChild(ts);
 }
 
 // ── Inject TIDY button ────────────────────────────────────────────────────────
 function injectTidyButton(){
-  var modal=document.querySelector('.trip-proposal-share-modal');
-  if(!modal||document.getElementById('ctTidyButton'))return;
+  var modal=_pd.querySelector('.trip-proposal-share-modal');
+  if(!modal||_pd.getElementById('ctTidyButton'))return;
   var actionButtons=modal.querySelector('.modal-footer .action-buttons');
   if(!actionButtons)return;
   var buttons=actionButtons.querySelectorAll('button');
   if(buttons.length<2)return;
   injectStyles();
-  var wrap=document.createElement('div');
+  var wrap=_pd.createElement('div');
   wrap.className='scope-wrapper sabre-ngv-themes-components-form';
   wrap.id='ctTidyButton';
   wrap.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
@@ -250,7 +252,7 @@ var _collapsed=false;
 
 function showPanel(){
   // If panel exists, toggle collapse
-  if(document.getElementById('ctTidyPanel')){
+  if(_pd.getElementById('ctTidyPanel')){
     toggleCollapse();
     return;
   }
@@ -263,7 +265,7 @@ function showPanel(){
   if(!_opts.length){alert('No options found in proposal.');return;}
   _collapsed=false;
 
-  var modal=document.querySelector('.trip-proposal-share-modal .modal-content');
+  var modal=_pd.querySelector('.trip-proposal-share-modal .modal-content');
   if(!modal)return;
   modal.style.position='relative';
 
@@ -279,7 +281,7 @@ function showPanel(){
       +'</div>';
   }).join('');
 
-  var panel=document.createElement('div');
+  var panel='_pd.createElement('div');
   panel.id='ctTidyPanel';
   panel.innerHTML=
     '<div id="ctTidyHeader">'
@@ -299,14 +301,14 @@ function showPanel(){
 
   modal.appendChild(panel);
 
-  document.getElementById('ctTidyHeader').addEventListener('click',function(e){
+  _pd.getElementById('ctTidyHeader').addEventListener('click',function(e){
     // Only toggle if not clicking a button
     if(e.target.tagName!=='BUTTON')toggleCollapse();
   });
-  document.getElementById('ctTogglePanel').addEventListener('click',toggleCollapse);
-  document.getElementById('ctClosePanel').addEventListener('click',function(){panel.remove();});
-  document.getElementById('ctDoCopy').addEventListener('click',function(){runTidy('copy');});
-  document.getElementById('ctDoPDF').addEventListener('click',function(){runTidy('pdf');});
+  _pd.getElementById('ctTogglePanel').addEventListener('click',toggleCollapse);
+  _pd.getElementById('ctClosePanel').addEventListener('click',function(){panel.remove();});
+  _pd.getElementById('ctDoCopy').addEventListener('click',function(){runTidy('copy');});
+  _pd.getElementById('ctDoPDF').addEventListener('click',function(){runTidy('pdf');});
 
   // Wire merch inputs
   panel.querySelectorAll('.ct-mi').forEach(function(mi){
@@ -323,8 +325,8 @@ function showPanel(){
 
 function toggleCollapse(){
   _collapsed=!_collapsed;
-  var body=document.getElementById('ctTidyBody');
-  var btn=document.getElementById('ctTogglePanel');
+  var body=_pd.getElementById('ctTidyBody');
+  var btn=_pd.getElementById('ctTogglePanel');
   if(body)body.classList.toggle('ct-collapsed',_collapsed);
   if(btn)btn.textContent=_collapsed?'▲':'▼';
 }
@@ -334,7 +336,7 @@ function runTidy(mode){
   var srcdoc=getSrcdoc();
   if(!srcdoc){alert('Could not find proposal.');return;}
 
-  var panel=document.getElementById('ctTidyPanel');
+  var panel=_pd.getElementById('ctTidyPanel');
   var selectedKeys={};
   panel.querySelectorAll('.ct-ck').forEach(function(cb){
     if(cb.checked)selectedKeys[cb.dataset.key]=true;
@@ -365,7 +367,7 @@ function runTidy(mode){
   var iframe=getIframe();
   if(!iframe){alert('Could not find proposal iframe.');return;}
 
-  var btn=document.getElementById('ctDoCopy');
+  var btn=_pd.getElementById('ctDoCopy');
   if(btn){btn.textContent='⏳ Applying...';btn.disabled=true;}
 
   // Use body.innerHTML for the srcdoc - preserves original structure Sabre expects
@@ -375,7 +377,7 @@ function runTidy(mode){
     iframe.removeEventListener('load',onLoad);
     // Find and click Sabre's native Copy button
     var sabreCopy=Array.from(
-      document.querySelectorAll('.trip-proposal-share-modal .modal-footer .action-buttons button')
+      _pd.querySelectorAll('.trip-proposal-share-modal .modal-footer .action-buttons button')
     ).find(function(b){return b.textContent.trim()==='Copy';});
 
     if(sabreCopy){
@@ -400,7 +402,7 @@ function runTidy(mode){
 
 // ── Observer ──────────────────────────────────────────────────────────────────
 var _obs=new MutationObserver(function(){injectTidyButton();});
-if(document.body)_obs.observe(document.body,{childList:true,subtree:true});
+if(_pd.body)_obs.observe(_pd.body,{childList:true,subtree:true});
 setTimeout(injectTidyButton,500);
 
 })();
