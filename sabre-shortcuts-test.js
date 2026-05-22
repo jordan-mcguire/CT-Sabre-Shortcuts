@@ -172,7 +172,7 @@ document.head.appendChild(ts);
 actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
 tidyButton.querySelector('button').addEventListener('click',function(){
 var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@8d5b15d081eb9006dcd43e19527da081f522105a/trip-proposalv4.js';
 document.body.appendChild(s);
 });
 }
@@ -241,7 +241,7 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
-['ctCostCentreBar','ctLuminaBookingBar'].forEach(function(id){
+['ctCostCentreBar','ctLuminaBookingBar','ctLuminaItinBar'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
 ['ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
@@ -249,6 +249,7 @@ var el=document.getElementById(id);
 if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
 });
 openPopup=null;
+var bnr=document.getElementById('ctNotesBanner');if(bnr)bnr.style.display='';
 }
 
 // ── Approval helpers ──────────────────────────────────────────────────────────
@@ -364,7 +365,7 @@ var bodyText=responseElement?responseElement.innerText:document.body.innerText;
 var lineScope=responseElement||document;
 var lines=lineScope.querySelectorAll('.dn-line.text-line');
 var info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',
-method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',
+method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',profileId:'',
 hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[],isGraphicalView:false};
 
 var isGfx=document.querySelector('.pnr-record-locator')!==null;
@@ -403,6 +404,7 @@ info.traveller=rawPax;
 if(rawPax){var np=rawPax.split('/');if(np.length>=2){info.surname=np[0].trim();info.firstname=np[1].trim();}}
 var cm=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);if(cm)info.company=cm[1].trim();
 var lm=bodyText.match(/L¥LUMINA ID-(\d+)/);if(lm)info.luminaId=lm[1].trim();
+var pgm=bodyText.match(/L¥PROFILEGATE-(\d+)/);if(pgm)info.profileId=pgm[1].trim();
 var bm=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);if(bm)info.booker=bm[1].trim();
 var mm=bodyText.match(/\s*(\d+)\.L¥METHOD-([WMET])/);if(mm){info.methodLine=parseInt(mm[1]);info.method=mm[2];}
 
@@ -552,6 +554,7 @@ h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+today
 h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
 h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="changeLuminaBooking">🔢 Change Lumina Booking</button>';
+h+='<button class="ct-popup-btn" data-action="saveLuminaItinerary">📄 Save Lumina Itinerary (PDF)</button>';
 h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost Centre</button>';
   h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
 h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
@@ -614,6 +617,7 @@ return h;
 function showPopup(id,contentHTML,anchorBtn){
 closeAllPopups();
 if(openPopup===id){openPopup=null;return;}
+var bnr=document.getElementById('ctNotesBanner');if(bnr)bnr.style.display='none';
 var popup=document.createElement('div');
 popup.id=id;popup.className='ct-popup';
 popup.innerHTML=contentHTML;
@@ -734,7 +738,54 @@ case 'queueSerko':
 executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
 case 'missedTTL':
 executeMissedTTL();break;
-    case 'changeLuminaBooking':
+case 'saveLuminaItinerary':
+  var lbBar3=document.getElementById('ctLuminaBookingBar');if(lbBar3)lbBar3.remove();
+  var ccBar3=document.getElementById('ctCostCentreBar');if(ccBar3)ccBar3.remove();
+  var liExisting=document.getElementById('ctLuminaItinBar');
+  if(liExisting){liExisting.remove();break;}
+  var liTb=document.getElementById('ctToolbar');
+  if(!liTb)break;
+  var liBar=document.createElement('div');
+  liBar.id='ctLuminaItinBar';
+  var liRect=liTb.getBoundingClientRect();
+  liBar.style.cssText='position:fixed;z-index:1000005;'
+    +'right:'+(window.innerWidth-liRect.right)+'px;'
+    +'bottom:'+(window.innerHeight-liRect.top+8)+'px;'
+    +'background:white;border:1.5px solid #f0d0d8;border-radius:10px;'
+    +'box-shadow:0 4px 20px rgba(0,0,0,0.18);'
+    +'padding:10px 12px;font-family:Aptos,Arial,sans-serif;width:300px;'
+    +'animation:ctPopIn 0.2s ease-out;';
+  liBar.innerHTML='<div style="font-size:8px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">📄 SAVE LUMINA ITINERARY (PDF)</div>'
+    +'<div style="margin-bottom:6px"><label style="font-size:9px;color:#888;display:block;margin-bottom:2px">Lumina Booking ID</label>'
+    +'<input id="ctLIBookingId" type="text" value="'+( currentBookingInfo.luminaId||'')+'" placeholder="Lumina booking ID" '
+    +'style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #f0d0d8;border-radius:5px;font-size:11px;font-family:Aptos,Arial,sans-serif;outline:none;" /></div>'
+    +'<div style="margin-bottom:7px"><label style="font-size:9px;color:#888;display:block;margin-bottom:2px">Profile ID</label>'
+    +'<input id="ctLIProfileId" type="text" value="'+(currentBookingInfo.profileId||'')+'" placeholder="Profile ID" '
+    +'style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #f0d0d8;border-radius:5px;font-size:11px;font-family:Aptos,Arial,sans-serif;outline:none;" /></div>'
+    +'<div style="display:flex;gap:6px;">'
+    +'<button id="ctLISubmit" style="flex:1;background:#ff2e5f;color:white;border:none;border-radius:5px;'
+    +'padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Download PDF</button>'
+    +'<button id="ctLICancel" style="background:#f5f5f5;color:#555;border:1px solid #ddd;border-radius:5px;'
+    +'padding:6px 10px;font-size:11px;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Cancel</button>'
+    +'</div>';
+  document.body.appendChild(liBar);
+  document.getElementById('ctLICancel').addEventListener('click',function(){liBar.remove();});
+  document.getElementById('ctLISubmit').addEventListener('click',function(){
+    var bid=document.getElementById('ctLIBookingId').value.trim();
+    var pid=document.getElementById('ctLIProfileId').value.trim();
+    if(!bid){showToast('⚠️ Lumina Booking ID required');return;}
+    if(!pid){showToast('⚠️ Profile ID required');return;}
+    var url='https://corp-portal.au.fcl.internal/portal/generateItinerary.srvlt?id='+bid+'&type=.PDF&preview=false&airFareDisplay=false&costingsDisplayFlag=false&feesDisplayFlag=false&hideOtherCostings=true&createIndividualItinerary=false&profileUnique='+pid;
+    window.open(url,'_blank');
+    liBar.remove();
+  });
+  document.getElementById('ctLIBookingId').addEventListener('keydown',function(e){if(e.key==='Escape')liBar.remove();});
+  document.getElementById('ctLIProfileId').addEventListener('keydown',function(e){
+    if(e.key==='Enter')document.getElementById('ctLISubmit').click();
+    if(e.key==='Escape')liBar.remove();
+  });
+  break;
+case 'changeLuminaBooking':
     var ccBar2=document.getElementById('ctCostCentreBar');if(ccBar2)ccBar2.remove();
   var lbMatch=document.body.innerText.match(/(\d+)\.\s*L¥LUMINA ID-(\d+)/);
   var lbLine=lbMatch?lbMatch[1]:'';
@@ -1203,8 +1254,7 @@ style.textContent=
 +'.ct-btn-shortcuts:hover{background:#fff0f4;color:#ff2e5f;}'
 +'.ct-btn-collapse{background:#fafafa;color:#bbb;font-size:18px;padding:0 10px;}'
 +'.ct-btn-collapse:hover{background:#fff0f4;color:#ff2e5f;}'
-+'.ct-btn-view{background:#f0fff4;color:#1a7a3a;}'
-+'.ct-btn-view:hover{background:#1a7a3a;color:white;}'
+
 
 // Notes dot on Actions button
 +'.ct-notes-dot{'
@@ -1280,8 +1330,6 @@ style.textContent=
 +'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}'
 +'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
 +'.ct-tnw-btn:hover{background:#002d35 !important;}'
-+'.ct-nav-row{display:flex;gap:4px;margin:2px 0;}'
-+'.ct-nav-btn{flex:1;text-align:center;padding:7px 4px;font-size:9.5px;}'
   +'.ct-tr-list-btn{flex:0 0 auto !important;width:auto !important;}'
   ;
 
