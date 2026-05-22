@@ -262,6 +262,11 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     if(s.indexOf('padding-bottom')===-1)td.setAttribute('style',s+(s?';':'')+'padding-bottom:8px');
   });
 
+  // 14c. Remove cellpadding="0" from all tables so inline padding survives Outlook
+  doc.querySelectorAll('table[cellpadding="0"]').forEach(function(t){
+    t.removeAttribute('cellpadding');
+  });
+
   // 14. Outlook/email cleanup - remove role="presentation" and !important only
   doc.querySelectorAll('[role="presentation"]').forEach(function(el){el.removeAttribute('role');});
   doc.querySelectorAll('[style]').forEach(function(el){
