@@ -512,16 +512,10 @@ function showPanel(){
       pi.value=((parseFloat(pi.dataset.base)||0)+(parseFloat(mi.value)||0)).toFixed(2);
     });
   });
+
+  // Apply merch to all flights
+  _pd.getElementById('ctMerchAllBtn').addEventListener('click',function(){
     var val=parseFloat(_pd.getElementById('ctMerchAllInput').value)||0;
-    panel.querySelectorAll('.ct-mi[data-mf*="-air"],.ct-mi[data-mf$="-air"]').forEach(function(mi){
-      // match air options only
-      var key=mi.dataset.mf;
-      if(key.indexOf('air')===-1)return;
-      mi.value=val.toFixed(2);
-      var pi=panel.querySelector('.ct-pi[data-pf="'+key+'"]');
-      if(pi)pi.value=((parseFloat(pi.dataset.base)||0)+val).toFixed(2);
-    });
-    // Also trigger on all flight merch inputs
     panel.querySelectorAll('.ct-mi').forEach(function(mi){
       if(mi.dataset.mf&&mi.dataset.mf.indexOf('air')!==-1){
         mi.value=val.toFixed(2);
