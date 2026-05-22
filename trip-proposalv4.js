@@ -113,15 +113,19 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     if(last)last.nodeValue=last.nodeValue.replace(/[\d,]+\.\d{2}/,newPrice);
   });
 
-  // 8. Hide unselected options + spacers
+  // 8. Remove unselected options + spacers from DOM entirely
+  // (display:none on tables is ignored by Outlook)
   doc.querySelectorAll('table[id]').forEach(function(t){
     var m=(t.id||'').match(/^proposal-(?:enhanced|compact)-(\d+)-(air|hotel|car)-option$/);
     if(!m)return;
     if(!selectedKeys[m[1]+'-'+m[2]]){
-      t.style.display='none';
+      // Also remove following spacer table (role="none")
       var next=t.nextSibling;
       while(next&&next.nodeType===3)next=next.nextSibling;
-      if(next&&next.getAttribute&&next.getAttribute('role')==='none')next.style.display='none';
+      if(next&&next.getAttribute&&next.getAttribute('role')==='none'&&next.parentNode){
+        next.parentNode.removeChild(next);
+      }
+      if(t.parentNode)t.parentNode.removeChild(t);
     }
   });
 
@@ -671,8 +675,8 @@ function runTidy(mode){
       var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
       if(priceEl){
         var ac=doc.createElement('span');
-        ac.style.cssText='font-size:11px;font-style:italic;font-weight:700;color:#555;margin-left:8px;white-space:nowrap;vertical-align:middle;';
-        ac.textContent='additional cost';
+        ac.style.cssText='font-size:10px;font-style:italic;font-weight:700;color:#555;margin-left:8px;white-space:nowrap;vertical-align:middle;';
+        ac.textContent=' additional cost ';
         priceEl.querySelector('strong')?priceEl.querySelector('strong').appendChild(ac):priceEl.appendChild(ac);
       }
     }
