@@ -351,7 +351,8 @@ function injectStyles(){
     +'#ctTidyPanel .ct-or{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #fce8ee;}'
     +'#ctTidyPanel .ct-or:last-child{border-bottom:none;}'
     +'#ctTidyPanel .ct-or input[type=checkbox]{accent-color:#ff2e5f;width:12px;height:12px;flex-shrink:0;cursor:pointer;}'
-    +'#ctTidyPanel .ct-ol{flex:1;font-weight:600;color:#333;cursor:pointer;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    +'#ctTidyPanel .ct-ol-input{flex:1;font-weight:600;color:#333;font-size:10px;border:1px solid #eee;border-radius:3px;padding:2px 4px;font-family:inherit;background:#fafafa;min-width:0;}'
+    +'#ctTidyPanel .ct-ol-input:focus{border-color:#ff2e5f;outline:none;background:#fff;}'
     +'#ctTidyPanel .ct-pi{border:1px solid #ddd;border-radius:4px;padding:2px 5px;font-size:10px;width:68px;text-align:right;font-family:Arial,sans-serif;}'
     +'#ctTidyPanel .ct-pi:focus{border-color:#ff2e5f;outline:none;}'
     +'#ctTidyPanel .ct-ml{font-size:9px;color:#bbb;white-space:nowrap;}'
@@ -536,12 +537,14 @@ function buildNormalRows(){
     var isAir=o.type==='air';
     return '<div class="ct-or">'
       +'<input type="checkbox" checked class="ct-ck" data-key="'+o.key+'" id="ctck'+o.key+'">'
-      +'<label class="ct-ol" for="ctck'+o.key+'">'+o.icon+' '+o.label+'</label>'
+      +'<input class="ct-ol-input" type="text" value="'+o.label+'" data-lf="'+o.key+'" title="Edit label">'
       +(o.price
         ?'<input class="ct-pi" type="text" value="'+o.price+'" data-pf="'+o.key+'" data-base="'+o.price+'" placeholder="Price">'
          +(isAir?'<span class="ct-ml">+$</span><input class="ct-mi" type="text" value="" data-mf="'+o.key+'" placeholder="0">':'')
          +'<input type="checkbox" class="ct-hp" title="Hide price" data-hpf="'+o.key+'">'
          +'<span class="ct-hpl">hide</span>'
+         +(isAir?'<input type="checkbox" class="ct-chg" title="Change option" data-cgf="'+o.key+'">'
+           +'<span class="ct-hpl">chg</span>':'')
         :'')
       +'</div>';
   }).join('');
@@ -596,6 +599,8 @@ function runTidy(mode){
   var selectedKeys={};
   var priceOverrides={};
   var hidePriceKeys={};
+  var labelOverrides={};
+  var chgKeys={};
   var packageData=null;
 
   if(_mode==='package'){
@@ -630,12 +635,48 @@ function runTidy(mode){
     panel.querySelectorAll('.ct-hp:checked').forEach(function(cb){
       hidePriceKeys[cb.dataset.hpf]=true;
     });
+    panel.querySelectorAll('.ct-ol-input').forEach(function(inp){
+      var v=inp.value.trim();if(v)labelOverrides[inp.dataset.lf]=v;
+    });
+    panel.querySelectorAll('.ct-chg:checked').forEach(function(cb){
+      chgKeys[cb.dataset.cgf]=true;
+    });
   }
 
   var doc=parseSrcdoc(srcdoc);
   var pType=getProposalType(doc);
   var hasCarOption=!!doc.querySelector('[id*="-car-option"]');
   applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption);
+
+  // Apply label overrides
+  Object.keys(labelOverrides).forEach(function(key){
+    var parts=key.split('-'),num=parts[0],type=parts[1];
+    var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
+    if(titleEl)titleEl.innerHTML='<strong style="color:#ff2e5f">'+labelOverrides[key]+'</strong>';
+  });
+
+  // Apply CHG - add yellow "Change" chip next to title, append "additional cost" after price
+  Object.keys(chgKeys).forEach(function(key){
+    var parts=key.split('-'),num=parts[0],type=parts[1];
+    // Add chip next to title
+    var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
+    if(titleEl){
+      var chip=doc.createElement('span');
+      chip.style.cssText='display:inline-block;background:#fff8e1;color:#7a5800;border:1px solid #ffe082;border-radius:3px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle;';
+      chip.textContent='Change';
+      titleEl.querySelector('strong').appendChild(chip);
+    }
+    // Add "additional cost" after price - only if price not hidden
+    if(!hidePriceKeys[key]){
+      var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
+      if(priceEl){
+        var ac=doc.createElement('div');
+        ac.style.cssText='font-size:10px;font-style:italic;color:#666;font-weight:normal;text-align:right;';
+        ac.textContent='additional cost';
+        priceEl.appendChild(ac);
+      }
+    }
+  });
 
   // Apply hide price
   Object.keys(hidePriceKeys).forEach(function(key){
