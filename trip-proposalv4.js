@@ -284,8 +284,8 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption){
     ['.proposal-enhanced-padding-left-48px','padding-left:48px'],
     ['.proposal-enhanced-product-details-left-row','padding-top:8px;padding-bottom:8px'],
     ['.proposal-enhanced-product-details-left-bottom-row','padding-bottom:8px;padding-right:16px;padding-left:48px'],
-    ['.proposal-enhanced-segment-header','padding:8px 16px'],
-    ['.proposal-enhanced-segment-header-small','padding:8px 16px'],
+    ['.proposal-enhanced-segment-header','padding:12px 16px'],
+    ['.proposal-enhanced-segment-header-small','padding:12px 16px'],
     ['.proposal-enhanced-rate-breakdown','padding:8px 48px'],
     ['.proposal-enhanced-policy','padding:8px 16px 8px 48px'],
     ['.proposal-enhanced-agency-message-info','padding:8px 8px 8px 0'],
@@ -662,7 +662,7 @@ function runTidy(mode){
     var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
     if(titleEl){
       var chip=doc.createElement('span');
-      chip.style.cssText='display:inline-block;background:#fff8e1;color:#7a5800;border:1px solid #ffe082;border-radius:3px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle;';
+      chip.style.cssText='display:inline-block;background:#fff8e1;color:#7a5800;border:1px solid #ffe082;border-radius:3px;padding:1px 7px;font-size:10px;font-weight:700;margin-left:8px;vertical-align:middle;white-space:nowrap;';
       chip.textContent='Change';
       titleEl.querySelector('strong').appendChild(chip);
     }
@@ -670,10 +670,10 @@ function runTidy(mode){
     if(!hidePriceKeys[key]){
       var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
       if(priceEl){
-        var ac=doc.createElement('div');
-        ac.style.cssText='font-size:10px;font-style:italic;color:#666;font-weight:normal;text-align:right;';
+        var ac=doc.createElement('span');
+        ac.style.cssText='font-size:11px;font-style:italic;font-weight:700;color:#555;margin-left:8px;white-space:nowrap;vertical-align:middle;';
         ac.textContent='additional cost';
-        priceEl.appendChild(ac);
+        priceEl.querySelector('strong')?priceEl.querySelector('strong').appendChild(ac):priceEl.appendChild(ac);
       }
     }
   });
