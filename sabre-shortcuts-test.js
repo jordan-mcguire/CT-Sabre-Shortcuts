@@ -198,7 +198,7 @@ return;
 
   // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
 var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@a83f4ecda18cc386b1c62e07fcdc34c46f6a4d76/trip-proposalv4.js';
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@5802c584c0c710ba6173bd6e3c7f33360475fa26/trip-proposalv4.js';
 document.body.appendChild(s);
 
 // ── State ─────────────────────────────────────────────────────────────────────
