@@ -216,7 +216,7 @@ function injectTidyButton(){
   actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
   tidyButton.querySelector('button').addEventListener('click',function(){
     var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@000789d16ae1fa5c40099aac83a10cd820101e3a/trip-proposalv4.js?v='+Date.now();
+    s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@1ac1a0fee51a30d4b87ea7767479b64aca8b362b/trip-proposalv4.js?v='+Date.now();
     document.body.appendChild(s);
   });
 }
