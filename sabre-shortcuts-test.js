@@ -197,9 +197,32 @@ return;
 }
 
   // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
-var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@5802c584c0c710ba6173bd6e3c7f33360475fa26/trip-proposalv4.js';
-document.body.appendChild(s);
+function injectTidyButton(){
+  var modal=document.querySelector('.trip-proposal-share-modal');
+  if(!modal)return;
+  var actionButtons=modal.querySelector('.modal-footer .action-buttons');
+  if(!actionButtons||document.getElementById('ctTidyButton'))return;
+  var buttons=actionButtons.querySelectorAll('button');
+  if(buttons.length<2)return;
+  var tidyButton=document.createElement('div');
+  tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
+  tidyButton.id='ctTidyButton';
+  tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
+  if(!document.getElementById('ctTidyStyle')){
+    var ts=document.createElement('style');ts.id='ctTidyStyle';
+    ts.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
+    document.head.appendChild(ts);
+  }
+  actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
+  tidyButton.querySelector('button').addEventListener('click',function(){
+    var s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@000789d16ae1fa5c40099aac83a10cd820101e3a/trip-proposalv4.js?v='+Date.now();
+    document.body.appendChild(s);
+  });
+}
+var proposalObserver=new MutationObserver(function(){injectTidyButton();});
+if(document.body)proposalObserver.observe(document.body,{childList:true,subtree:true});
+setTimeout(injectTidyButton,500);
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var isCollapsed=false;
