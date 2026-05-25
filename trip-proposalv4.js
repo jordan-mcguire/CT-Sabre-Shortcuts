@@ -497,9 +497,7 @@ function showPanel(){
       var key=cb.dataset.key;
       var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+key+'"]');
       var mi=panel.querySelector('.ct-pkg-mi[data-mf="'+key+'"]');
-      var base=pi?parseFloat(pi.value)||0:parseFloat(cb.dataset.base)||0;
-      var merch=mi?parseFloat(mi.value)||0:0;
-      total+=base+merch;
+      total+=pi?parseFloat(pi.value)||0:parseFloat(cb.dataset.base)||0;
     });
     var pkgMerch=parseFloat((_pd.getElementById('ctPkgMerch')||{}).value)||0;
     total+=pkgMerch;
