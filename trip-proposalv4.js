@@ -594,7 +594,7 @@ function buildPkgRows(){
       +'<span style="font-size:9px;color:#666;font-weight:700">Package total:</span>'
       +'<span id="ctPkgTotal" style="font-size:11px;font-weight:800;color:#ff2e5f">—</span>'
     +'</div>'
-    +'<div class="ct-pkg-note">☑ = in package &middot; unchecked = standalone &middot; hide = omitted</div>'
+  +'<div class="ct-pkg-note">checked = in package &middot; unchecked = standalone &middot; hide = omitted</div>'
     +'</div>';
   return rows;
 }
