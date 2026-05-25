@@ -152,9 +152,53 @@ setTimeout(function(){document.getElementById('sabrePasteButton').remove();},200
 return;
 }
 
+  if(window.location.href.includes('booking.jetstar.com')){
+  var jqBtn=document.createElement('div');
+  jqBtn.id='jqPasteButton';
+  jqBtn.innerHTML='<button id="pasteToJQBtn">✈️ PASTE TO JETSTAR</button>';
+  jqBtn.style.cssText='position:fixed;top:20px;right:20px;z-index:999999;';
+  document.body.appendChild(jqBtn);
+  var jqBtnStyle=document.createElement('style');
+  jqBtnStyle.textContent='#pasteToJQBtn{background:linear-gradient(135deg,#ff6600 0%,#ff9944 100%);color:white;border:none;padding:15px 25px;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Aptos,Arial,sans-serif;transition:transform 0.2s ease;}#pasteToJQBtn:hover{transform:scale(1.05);}';
+  document.head.appendChild(jqBtnStyle);
+  document.getElementById('pasteToJQBtn').addEventListener('click',async function(){
+    try{
+      var clip=await navigator.clipboard.readText();
+      if(!clip.startsWith('##JQ_FILL##')){alert('No JQ data found. Click "Copy to JQ Portal" in Sabre first.');return;}
+      var jqData={};
+      clip.split('\n').forEach(function(l){
+        if(l.includes('TITLE:'))jqData.title=l.split('TITLE:')[1].trim();
+        if(l.includes('FIRST:'))jqData.first=l.split('FIRST:')[1].trim();
+        if(l.includes('SURNAME:'))jqData.surname=l.split('SURNAME:')[1].trim();
+        if(l.includes('EMAIL:'))jqData.email=l.split('EMAIL:')[1].trim();
+        if(l.includes('PHONE:'))jqData.phone=l.split('PHONE:')[1].trim();
+      });
+      function setVal(el,val){el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}
+      var titleSel=document.querySelector('select#passenger_title_0');
+      if(titleSel)setVal(titleSel,jqData.title);
+      var paxFirst=document.querySelector('input#passenger_Firstname_0');
+      if(paxFirst)setVal(paxFirst,jqData.first);
+      var paxLast=document.querySelector('input#passenger_Lastname_0');
+      if(paxLast)setVal(paxLast,jqData.surname);
+      var conFirst=document.querySelector('input#js-contact_Name_First');
+      if(conFirst)setVal(conFirst,jqData.first);
+      var conLast=document.querySelector('input#js-contact_Name_Last');
+      if(conLast)setVal(conLast,jqData.surname);
+      var emailEl=document.querySelector('input#contact_Email_Address');
+      if(emailEl)setVal(emailEl,jqData.email);
+      var phoneEl=document.querySelector('input#contact_Phone_Number');
+      if(phoneEl)setVal(phoneEl,jqData.phone);
+      document.getElementById('jqPasteButton').querySelector('button').textContent='✓ PASTED!';
+      document.getElementById('jqPasteButton').querySelector('button').style.background='#28a745';
+      setTimeout(function(){var b=document.getElementById('jqPasteButton');if(b)b.remove();},2000);
+    }catch(err){alert('Could not read clipboard: '+err.message);}
+  });
+  return;
+}
+
   // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
 var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@8d5b15d081eb9006dcd43e19527da081f522105a/trip-proposalv4.js';
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@a83f4ecda18cc386b1c62e07fcdc34c46f6a4d76/trip-proposalv4.js';
 document.body.appendChild(s);
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -512,6 +556,7 @@ h+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kb
 h+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+J</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+C</kbd></button>';
+h+='<button class="ct-popup-btn ct-jq-btn" data-action="copyToJQ">✈️ Copy to JQ Portal</button>';
 }
 return h;
 }
@@ -716,51 +761,11 @@ executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAll
 case 'missedTTL':
 executeMissedTTL();break;
 case 'saveLuminaItinerary':
-  var lbBar3=document.getElementById('ctLuminaBookingBar');if(lbBar3)lbBar3.remove();
-  var ccBar3=document.getElementById('ctCostCentreBar');if(ccBar3)ccBar3.remove();
-  var liExisting=document.getElementById('ctLuminaItinBar');
-  if(liExisting){liExisting.remove();break;}
-  var liTb=document.getElementById('ctToolbar');
-  if(!liTb)break;
-  var liBar=document.createElement('div');
-  liBar.id='ctLuminaItinBar';
-  var liRect=liTb.getBoundingClientRect();
-  liBar.style.cssText='position:fixed;z-index:1000005;'
-    +'right:'+(window.innerWidth-liRect.right)+'px;'
-    +'bottom:'+(window.innerHeight-liRect.top+8)+'px;'
-    +'background:white;border:1.5px solid #f0d0d8;border-radius:10px;'
-    +'box-shadow:0 4px 20px rgba(0,0,0,0.18);'
-    +'padding:10px 12px;font-family:Aptos,Arial,sans-serif;width:300px;'
-    +'animation:ctPopIn 0.2s ease-out;';
-  liBar.innerHTML='<div style="font-size:8px;font-weight:800;color:#ff2e5f;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">📄 SAVE LUMINA ITINERARY (PDF)</div>'
-    +'<div style="margin-bottom:6px"><label style="font-size:9px;color:#888;display:block;margin-bottom:2px">Lumina Booking ID</label>'
-    +'<input id="ctLIBookingId" type="text" value="'+( currentBookingInfo.luminaId||'')+'" placeholder="Lumina booking ID" '
-    +'style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #f0d0d8;border-radius:5px;font-size:11px;font-family:Aptos,Arial,sans-serif;outline:none;" /></div>'
-    +'<div style="margin-bottom:7px"><label style="font-size:9px;color:#888;display:block;margin-bottom:2px">Profile ID</label>'
-    +'<input id="ctLIProfileId" type="text" value="'+(currentBookingInfo.profileId||'')+'" placeholder="Profile ID" '
-    +'style="width:100%;box-sizing:border-box;padding:6px 8px;border:1px solid #f0d0d8;border-radius:5px;font-size:11px;font-family:Aptos,Arial,sans-serif;outline:none;" /></div>'
-    +'<div style="display:flex;gap:6px;">'
-    +'<button id="ctLISubmit" style="flex:1;background:#ff2e5f;color:white;border:none;border-radius:5px;'
-    +'padding:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Download PDF</button>'
-    +'<button id="ctLICancel" style="background:#f5f5f5;color:#555;border:1px solid #ddd;border-radius:5px;'
-    +'padding:6px 10px;font-size:11px;cursor:pointer;font-family:Aptos,Arial,sans-serif;">Cancel</button>'
-    +'</div>';
-  document.body.appendChild(liBar);
-  document.getElementById('ctLICancel').addEventListener('click',function(){liBar.remove();});
-  document.getElementById('ctLISubmit').addEventListener('click',function(){
-    var bid=document.getElementById('ctLIBookingId').value.trim();
-    var pid=document.getElementById('ctLIProfileId').value.trim();
-    if(!bid){showToast('⚠️ Lumina Booking ID required');return;}
-    if(!pid){showToast('⚠️ Profile ID required');return;}
-    var url='https://corp-portal.au.fcl.internal/portal/generateItinerary.srvlt?id='+bid+'&type=.PDF&preview=false&airFareDisplay=false&costingsDisplayFlag=false&feesDisplayFlag=false&hideOtherCostings=true&createIndividualItinerary=false&profileUnique='+pid;
-    window.open(url,'_blank');
-    liBar.remove();
-  });
-  document.getElementById('ctLIBookingId').addEventListener('keydown',function(e){if(e.key==='Escape')liBar.remove();});
-  document.getElementById('ctLIProfileId').addEventListener('keydown',function(e){
-    if(e.key==='Enter')document.getElementById('ctLISubmit').click();
-    if(e.key==='Escape')liBar.remove();
-  });
+  closeAllPopups();
+  var bid=currentBookingInfo.luminaId;
+  var pid=currentBookingInfo.profileId;
+  if(!bid||!pid){showToast('⚠️ N/A - manual print required');break;}
+  window.open('https://corp-portal.au.fcl.internal/portal/generateItinerary.srvlt?id='+bid+'&type=.PDF&preview=false&airFareDisplay=false&costingsDisplayFlag=false&feesDisplayFlag=false&hideOtherCostings=true&createIndividualItinerary=false&profileUnique='+pid,'_blank');
   break;
 case 'changeLuminaBooking':
     var ccBar2=document.getElementById('ctCostCentreBar');if(ccBar2)ccBar2.remove();
@@ -879,6 +884,19 @@ case 'tnwPassives':
     document.body.appendChild(s2);
   };
   document.body.appendChild(s1);
+  break;
+case 'copyToJQ':
+  var raw=currentBookingInfo.traveller||cachedTraveler||'';
+  var jqM=raw.match(/^([^\/]+)\/(.+)\s+(MR|MRS|MS|MISS|DR|CAPT|PROF|REV)$/i);
+  if(!jqM){showToast('⚠️ Could not parse name/title from PNR');break;}
+  var jqSurname=jqM[1].trim();
+  var jqFirst=jqM[2].trim();
+  var jqTitle=jqM[3].toUpperCase();
+  var jqPhone=currentBookingInfo.phone||'';
+  var jqPhoneClean=jqPhone.replace(/\D/g,'').slice(-9);
+  var jqEmail=currentBookingInfo.email||'';
+  var jqPayload='##JQ_FILL##\nTITLE:'+jqTitle+'\nFIRST:'+jqFirst+'\nSURNAME:'+jqSurname+'\nEMAIL:'+jqEmail+'\nPHONE:'+jqPhoneClean;
+  navigator.clipboard.writeText(jqPayload).then(function(){showToast('✓ Copied for JQ Portal');});
   break;
 }
 }
@@ -1061,6 +1079,11 @@ get lastKnownPNR(){return lastKnownPNR;},
 get pendingCommandPoll(){return pendingCommandPoll;}
 };
 window.__ctTrigger=function(){
+// Cheap pre-check: only run full extraction if response area text has changed
+var obsEl=document.querySelector('.dn-response-line:last-of-type .dn-line-group')||document.querySelector('.dn-line-group');
+var quickSnap=obsEl?obsEl.textContent.slice(0,120):'';
+if(quickSnap&&quickSnap===window.__ctLastSnap&&currentTicketView===window.__ctLastView){return{};}
+window.__ctLastSnap=quickSnap;window.__ctLastView=currentTicketView;
 var ni=extractBookingInfo();
 var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
 var pnrChanged=ni.pnr&&ni.pnr!==lastKnownPNR;
@@ -1088,14 +1111,14 @@ window.__ctTrigger();
 },300);
 });
 var obsTarget=document.querySelector('.area-out')||document.body;
-window.__ctObserver.observe(obsTarget,{childList:true,subtree:true,characterData:true});
+window.__ctObserver.observe(obsTarget,{childList:true,subtree:true});
 
-// Heartbeat — calls window.__ctTrigger so closure ambiguity is impossible
+// Heartbeat — safety net only; observer handles fast changes
 window.__ctHeartbeat=setInterval(function(){
 if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
 if(window.__ctState.pendingCommandPoll)return;
 window.__ctTrigger();
-},300);
+},1500);
 
 document.addEventListener('click',function(e){
 if(!openPopup)return;
@@ -1307,6 +1330,8 @@ style.textContent=
 +'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}'
 +'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
 +'.ct-tnw-btn:hover{background:#002d35 !important;}'
++'.ct-jq-btn{background:#ff6600 !important;color:#fff !important;border-color:#ff6600 !important;}'
++'.ct-jq-btn:hover{background:#cc5200 !important;}'
   +'.ct-tr-list-btn{flex:0 0 auto !important;width:auto !important;}'
   ;
 
