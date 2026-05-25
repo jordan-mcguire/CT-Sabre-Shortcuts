@@ -783,7 +783,7 @@ function runTidy(mode){
     }
   },{once:true});
 
-  iframe.setAttribute('srcdoc','<!DOCTYPE html>'+doc.documentElement.outerHTML);
+ iframe.setAttribute('srcdoc','<!DOCTYPE html>'+doc.documentElement.outerHTML);
 }
-
+showPanel();
 })();
