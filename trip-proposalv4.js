@@ -4,9 +4,9 @@ var ADDITIONAL_INFO='<table width="100%" style="margin-top:24px;border-collapse:
 
 var ADDITIONAL_INFO_DOMESTIC='<table width="100%" style="margin-top:24px;border-collapse:collapse;font-family:Arial,sans-serif"><tr><td style="background:#f5f5f5;border:1px solid #e0e0e0;border-left:3px solid #ff2e5f;padding:14px 16px;border-radius:4px"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:8px">ADDITIONAL INFORMATION</strong><p style="margin:0 0 4px;font-size:10px;color:#333;line-height:1.35">All prices indicated are subject to change and availability.</p><p style="margin:0 0 4px;font-size:10px;color:#333;line-height:1.35">All standard domestic airfares are non refundable, unless a refundable fare is specified / requested (i.e. Flex.)</p><p style="margin:0 0 4px;font-size:10px;color:#333;line-height:1.35">Airline change fees for domestic flights range from $50-110 per person, per flight, and are in addition to fare/tax difference.</p><p style="margin:0 0 4px;font-size:10px;color:#333;line-height:1.35">Jetstar flights and Virgin Lite fares cannot be cancelled or held in credit.</p><p style="margin:0;font-size:10px;color:#333;line-height:1.35">For more information on these topics, please contact your dedicated team.</p></td></tr></table>';
 
-var IMPORTANT_NOTICE='<table width="100%" style="margin:8px 0 20px 0;border-collapse:collapse"><tr><td style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:3px;background:#fafafa"><span style="font-size:9px;color:#999;line-height:1.8;font-family:Arial,sans-serif">&#183; All prices are subject to change until tickets are issued, even if tentatively holding.<br>&#183; Airlines reserve the right to change surcharges, fare levels and taxes without notice.<br>&#183; Corporate Traveller fees are not included in your quote and will be charged at time of invoicing per schedule of fees.</span></td></tr></table>';
+var IMPORTANT_NOTICE='<table width="100%" style="margin:8px 0 20px 0;border-collapse:collapse"><tr><td style="padding:7px 12px;border:1px solid #e0e0e0;border-radius:3px;background:#fafafa"><span style="font-size:9px;color:#999;line-height:1.8;font-family:Arial,sans-serif">· All prices are subject to change until tickets are issued, even if tentatively holding.<br>· Airlines reserve the right to change surcharges, fare levels and taxes without notice.<br>· Corporate Traveller fees are not included in your quote and will be charged at time of invoicing per schedule of fees.</span></td></tr></table>';
 
-var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#fff;border:2px solid #ff9800;border-radius:6px;padding:12px 14px"><strong style="color:#ff9800;font-size:11px;display:block;margin-bottom:6px">&#9888;&#65039; CAR RENTAL IMPORTANT INFORMATION</strong><ul style="font-size:10px;color:#333;margin:0;padding-left:18px;line-height:1.4"><li style="margin-bottom:4px">You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li style="margin-bottom:4px">Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li style="margin-bottom:4px">Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></td></tr></table>';
+var CAR_WARNING='<table width="100%" style="margin:16px 0;border-collapse:collapse"><tr><td><div style="background:#fff;border:2px solid #ff9800;border-radius:6px;padding:12px 14px"><strong style="color:#ff9800;font-size:11px;display:block;margin-bottom:6px">⚠️ CAR RENTAL IMPORTANT INFORMATION</strong><ul style="font-size:10px;color:#333;margin:0;padding-left:18px;line-height:1.4"><li style="margin-bottom:4px">You will need a PHYSICAL credit card (not debit) in the main driver\'s name upon pick up.</li><li style="margin-bottom:4px">Tolls cannot be charged back to Corporate Traveller for rentals with Avis or Budget.</li><li style="margin-bottom:4px">Bookings with personal memberships attached i.e. Hertz Gold/Avis Wizard will override any chargeback of the rental to Corporate Traveller and charge your card.</li><li>For international rentals: International drivers license may be required.</li></ul></div></td></tr></table>';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Sabre runs our script inside a child iframe - all UI elements live in parent
@@ -24,7 +24,7 @@ function findOptions(doc,pType){
     var num=m[1],type=m[2],key=num+'-'+type;
     if(seen[key])return;
     seen[key]=true;
-    var icon=type==='air'?'&#9992;':type==='hotel'?'&#127976;':'&#128663;';
+    var icon=type==='air'?'✈':type==='hotel'?'🏨':'🚗';
     var displayType=type==='air'?'Flight':type==='hotel'?'Hotel':'Car';
     var titleEl=doc.getElementById(pType+'-'+num+'-'+type+'-segment-title');
     var label=(titleEl?titleEl.textContent.trim():'')||(displayType+' Option '+num);
@@ -73,7 +73,7 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
         var headerTable=doc.getElementById('proposal-enhanced-'+num+'-air-header');
         if(headerTable){
           var fnRow=doc.createElement('tr');
-          fnRow.innerHTML='<td colspan="2" style="padding:6px 16px 8px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;text-align:right;">Quoted price includes: '+paxParts.join(' &#183; ')+'</td>';
+          fnRow.innerHTML='<td colspan="2" style="padding:6px 16px 8px;font-size:10px;color:#666;border-top:1px solid #e5e5e5;text-align:right;">Quoted price includes: '+paxParts.join(' · ')+'</td>';
           var tbody=headerTable.querySelector('tbody')||headerTable;
           tbody.appendChild(fnRow);
         }
@@ -115,19 +115,15 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
     if(last)last.nodeValue=last.nodeValue.replace(/[\d,]+\.\d{2}/,newPrice);
   });
 
-  // 8. Remove unselected options + spacers from DOM entirely
-  // (display:none on tables is ignored by Outlook)
+  // 8. Hide unselected options + spacers
   doc.querySelectorAll('table[id]').forEach(function(t){
     var m=(t.id||'').match(/^proposal-(?:enhanced|compact)-(\d+)-(air|hotel|car)-option$/);
     if(!m)return;
     if(!selectedKeys[m[1]+'-'+m[2]]){
-      // Also remove following spacer table (role="none")
+      t.style.display='none';
       var next=t.nextSibling;
       while(next&&next.nodeType===3)next=next.nextSibling;
-      if(next&&next.getAttribute&&next.getAttribute('role')==='none'&&next.parentNode){
-        next.parentNode.removeChild(next);
-      }
-      if(t.parentNode)t.parentNode.removeChild(t);
+      if(next&&next.getAttribute&&next.getAttribute('role')==='none')next.style.display='none';
     }
   });
 
@@ -167,7 +163,7 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
   var paxEl=doc.getElementById(pType+'-passengers-list');
   if(paxEl&&paxEl.textContent.trim()){
     var paxRow=doc.createElement('tr');
-    paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 16px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">&#9992;&#65039; PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxEl.textContent.trim()+'</span></div></td>';
+    paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 16px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxEl.textContent.trim()+'</span></div></td>';
     if(bodyEl)bodyEl.parentNode.insertBefore(paxRow,bodyEl);
   }
 
@@ -207,7 +203,7 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
     return val.split(';').map(function(p){
       p=p.trim();if(!p)return null;
       var isTTL=/ticketing time limit/i.test(p);
-      return chipHTML(isTTL?'&#9200; <strong>'+p+'</strong>':p,isTTL?'#fff8e1':'#f0f4ff',isTTL?'#7a5800':'#334',isTTL?'#ffe082':'#d0d8f0');
+      return chipHTML(isTTL?'⏰ <strong>'+p+'</strong>':p,isTTL?'#fff8e1':'#f0f4ff',isTTL?'#7a5800':'#334',isTTL?'#ffe082':'#d0d8f0');
     }).filter(Boolean).join('');
   }
 
@@ -248,12 +244,12 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
     var aircraftText=aircraftSpan?aircraftSpan.textContent.trim():'';
     var baggageText=baggageSpan?baggageSpan.textContent.trim():'';
     var parts=[];
-    if(aircraftText)parts.push('&#9992; '+aircraftText);
-    if(baggageText)parts.push('&#129523; '+baggageText);
+    if(aircraftText)parts.push('✈ '+aircraftText);
+    if(baggageText)parts.push('🧳 '+baggageText);
     if(!parts.length)return;
     var div=doc.createElement('div');
     div.style.cssText='font-size:10px;color:#888;font-style:italic;padding-top:4px;';
-    div.textContent=parts.join(' &#183; ');
+    div.textContent=parts.join(' · ');
     [label,aircraftSpan,baggageLabel,baggageSpan].forEach(function(el){
       if(el&&el.parentNode)el.parentNode.removeChild(el);
     });
@@ -382,7 +378,10 @@ function injectStyles(){
     +'#ctPkgArea input[type=text]:focus{border-color:#ff2e5f;outline:none;}'
     +'#ctPkgArea .ct-pkg-note{font-size:9px;color:#999;font-style:italic;}'
     // Footer
-    +'#ctTidyTripType{display:flex;gap:12px;padding:5px 10px;border-top:1px solid #f0d0d8;background:#fff9fa;}'    +'.ct-tt-opt{font-size:9.5px;color:#666;display:flex;align-items:center;gap:4px;cursor:pointer;}'    +'.ct-tt-opt input{accent-color:#ff2e5f;width:11px;height:11px;}'    +'#ctTidyFooter{display:flex;gap:6px;padding:7px 10px;border-top:1px solid #f0d0d8;}'
+    +'#ctTidyTripType{display:flex;gap:12px;padding:5px 10px;border-top:1px solid #f0d0d8;background:#fff9fa;}'
+    +'.ct-tt-opt{font-size:9.5px;color:#666;display:flex;align-items:center;gap:4px;cursor:pointer;}'
+    +'.ct-tt-opt input{accent-color:#ff2e5f;width:11px;height:11px;}'
+    +'#ctTidyFooter{display:flex;gap:6px;padding:7px 10px;border-top:1px solid #f0d0d8;}'
     +'#ctTidyPanel .ct-ab{flex:1;padding:6px;border:none;border-radius:5px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:Aptos,Arial,sans-serif;}'
     +'#ctTidyPanel .ct-cb{background:#ff2e5f;color:#fff;}'
     +'#ctTidyPanel .ct-cb:hover{background:#d4234e;}'
@@ -411,7 +410,7 @@ function injectTidyButton(){
 var _opts=[];
 var _collapsed=false;
 var _mode='normal'; // 'normal' or 'package'
-var _tripType='international'; // 'international' or 'domestic'
+var _tripType='international';
 
 function showPanel(){
   if(_pd.getElementById('ctTidyPanel')){toggleCollapse();return;}
@@ -431,10 +430,10 @@ function showPanel(){
   panel.id='ctTidyPanel';
   panel.innerHTML=
     '<div id="ctTidyHeader">'
-      +'<span class="ct-htitle">&#9881; TIDY</span>'
+      +'<span class="ct-htitle">⚙ TIDY</span>'
       +'<div class="ct-hbtns">'
-        +'<button id="ctTogglePanel">&#9660;</button>'
-        +'<button id="ctClosePanel">&#10005;</button>'
+        +'<button id="ctTogglePanel">▼</button>'
+        +'<button id="ctClosePanel">✕</button>'
       +'</div>'
     +'</div>'
     +'<div id="ctTidyBody">'
@@ -454,12 +453,12 @@ function showPanel(){
         +'<div id="ctPkgArea">'+buildPkgRows()+'</div>'
       +'</div>'
       +'<div id="ctTidyTripType">'
-        +'<label class="ct-tt-opt"><input type="radio" name="ctTripType" value="international" checked> &#127759; International</label>'
-        +'<label class="ct-tt-opt"><input type="radio" name="ctTripType" value="domestic"> &#127968; Domestic</label>'
+        +'<label class="ct-tt-opt"><input type="radio" name="ctTripType" value="international" checked> 🌏 International</label>'
+        +'<label class="ct-tt-opt"><input type="radio" name="ctTripType" value="domestic"> 🏠 Domestic</label>'
       +'</div>'
       +'<div id="ctTidyFooter">'
-        +'<button class="ct-ab ct-cb" id="ctDoCopy">&#128203; Apply</button>'
-        +'<button class="ct-ab ct-pb" id="ctDoPDF">&#128424; PDF</button>'
+        +'<button class="ct-ab ct-cb" id="ctDoCopy">📋 Apply</button>'
+        +'<button class="ct-ab ct-pb" id="ctDoPDF">🖨 PDF</button>'
       +'</div>'
     +'</div>';
 
@@ -512,7 +511,7 @@ function showPanel(){
     var pkgMerch=parseFloat((_pd.getElementById('ctPkgMerch')||{}).value)||0;
     total+=pkgMerch;
     var totalEl=_pd.getElementById('ctPkgTotal');
-    if(totalEl)totalEl.textContent=total>0?'AUD '+total.toFixed(2):'--';
+    if(totalEl)totalEl.textContent=total>0?'AUD '+total.toFixed(2):'—';
   }
   panel.addEventListener('change',function(e){
     if(e.target.classList.contains('ct-pkg-ck')||e.target.classList.contains('ct-pkg-hide'))updatePkgTotal();
@@ -593,7 +592,7 @@ function buildPkgRows(){
     +'</div>'
     +'<div style="display:flex;align-items:center;justify-content:space-between;padding-top:4px;border-top:1px solid #f0d0d8">'
       +'<span style="font-size:9px;color:#666;font-weight:700">Package total:</span>'
-      +'<span id="ctPkgTotal" style="font-size:11px;font-weight:800;color:#ff2e5f">--</span>'
+      +'<span id="ctPkgTotal" style="font-size:11px;font-weight:800;color:#ff2e5f">—</span>'
     +'</div>'
     +'<div class="ct-pkg-note">checked = in package &middot; unchecked = standalone &middot; hide = omitted</div>'
     +'</div>';
@@ -605,7 +604,7 @@ function toggleCollapse(){
   var body=_pd.getElementById('ctTidyBody');
   var btn=_pd.getElementById('ctTogglePanel');
   if(body)body.classList.toggle('ct-collapsed',_collapsed);
-  if(btn)btn.textContent=_collapsed?'&#9650;':'&#9660;';
+  if(btn)btn.textContent=_collapsed?'▲':'▼';
 }
 
 // ── Core ──────────────────────────────────────────────────────────────────────
@@ -628,7 +627,6 @@ function runTidy(mode){
     panel.querySelectorAll('.ct-pkg-ck:checked').forEach(function(cb){pkgChecked.push(cb.dataset.key);});
     panel.querySelectorAll('.ct-pkg-hide:checked').forEach(function(cb){pkgHidden.push(cb.dataset.hf);});
     panel.querySelectorAll('.ct-pkg-alt:checked').forEach(function(cb){altKeys[cb.dataset.af]=true;});
-    // selectedKeys: everything except hidden
     _opts.forEach(function(o){
       if(pkgHidden.indexOf(o.key)===-1)selectedKeys[o.key]=true;
     });
@@ -639,14 +637,12 @@ function runTidy(mode){
       var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+key+'"]');
       pkgTotal+=pi?parseFloat(pi.value)||0:0;
     });
-    // Standalone options (unchecked, not hidden): apply their price + merch overrides
     _opts.forEach(function(o){
       if(pkgChecked.indexOf(o.key)===-1&&pkgHidden.indexOf(o.key)===-1){
         var pi=panel.querySelector('.ct-pkg-pi[data-pf="'+o.key+'"]');
         if(pi)priceOverrides[o.key]=pi.value;
       }
     });
-    // Label overrides from editable fields
     panel.querySelectorAll('.ct-pkg-lbl').forEach(function(inp){
       var v=inp.value.trim();if(v)labelOverrides[inp.dataset.lf]=v;
     });
@@ -704,8 +700,8 @@ function runTidy(mode){
       var priceEl=doc.getElementById(pType+'-'+num+'-'+type+'-total-price');
       if(priceEl){
         var ac=doc.createElement('span');
-        ac.style.cssText='font-size:10px;font-style:italic;font-weight:700;color:#555;margin-left:8px;white-space:nowrap;vertical-align:middle;';
-        ac.textContent=' additional cost ';
+        ac.style.cssText='font-size:11px;font-style:italic;font-weight:700;color:#555;margin-left:8px;white-space:nowrap;vertical-align:middle;';
+        ac.textContent='additional cost';
         priceEl.querySelector('strong')?priceEl.querySelector('strong').appendChild(ac):priceEl.appendChild(ac);
       }
     }
@@ -772,15 +768,15 @@ function runTidy(mode){
   var iframe=getIframe();
   if(!iframe){alert('Could not find proposal iframe.');return;}
   var btn=_pd.getElementById('ctDoCopy');
-  if(btn){btn.textContent='&#9203; Applying...';btn.disabled=true;}
+  if(btn){btn.textContent='⏳ Applying...';btn.disabled=true;}
 
   iframe.addEventListener('load',function onLoad(){
     iframe.removeEventListener('load',onLoad);
     if(btn){
-      btn.textContent='&#10003; Applied! Click Copy >';
+      btn.textContent='✓ Applied! Click Copy >';
       btn.style.background='#28a745';
       btn.disabled=false;
-      setTimeout(function(){btn.textContent='&#128203; Apply';btn.style.background='';},6000);
+      setTimeout(function(){btn.textContent='📋 Apply';btn.style.background='';},6000);
     }
   },{once:true});
 
@@ -792,4 +788,5 @@ var _obs=new MutationObserver(function(){injectTidyButton();});
 if(_pd.body)_obs.observe(_pd.body,{childList:true,subtree:true});
 setTimeout(injectTidyButton,500);
 
+showPanel();
 })();
