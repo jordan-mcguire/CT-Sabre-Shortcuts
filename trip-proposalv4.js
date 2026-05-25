@@ -786,9 +786,4 @@ function runTidy(mode){
   iframe.setAttribute('srcdoc','<!DOCTYPE html>'+doc.documentElement.outerHTML);
 }
 
-// ── Observer ──────────────────────────────────────────────────────────────────
-var _obs=new MutationObserver(function(){injectTidyButton();});
-if(_pd.body)_obs.observe(_pd.body,{childList:true,subtree:true});
-setTimeout(injectTidyButton,500);
-
 })();
