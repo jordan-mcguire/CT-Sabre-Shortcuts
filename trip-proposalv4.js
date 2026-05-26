@@ -413,6 +413,7 @@ var _mode='normal'; // 'normal' or 'package'
 var _tripType='international';
 
 function showPanel(){
+  injectStyles();
   if(_pd.getElementById('ctTidyPanel')){toggleCollapse();return;}
   var srcdoc=getSrcdoc();
   if(!srcdoc){alert('Could not find proposal. Click Share first.');return;}
