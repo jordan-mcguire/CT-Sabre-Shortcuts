@@ -790,3 +790,4 @@ setTimeout(injectTidyButton,500);
 
 showPanel();
 })();
+ 
