@@ -789,5 +789,5 @@ var _obs=new MutationObserver(function(){injectTidyButton();});
 if(_pd.body)_obs.observe(_pd.body,{childList:true,subtree:true});
 setTimeout(injectTidyButton,500);
 
-showPanel();
+if(_pd.querySelector('.trip-proposal-share-modal'))showPanel();
 })();
