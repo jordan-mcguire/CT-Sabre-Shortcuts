@@ -324,8 +324,8 @@ function serializeDoc(doc){
 
 // ── Styles ────────────────────────────────────────────────────────────────────
 function injectStyles(){
-  if(_pd.getElementById('ctTidyStyle'))return;
-  var ts=_pd.createElement('style');ts.id='ctTidyStyle';
+  if(_pd.getElementById('ctTidyPanelStyle'))return;
+  var ts=_pd.createElement('style');ts.id='ctTidyPanelStyle';
   ts.textContent=
     '.ct-tidy-btn{background-color:#ff2e5f!important;color:#fff!important;}'
     +'#ctTidyPanel{'
