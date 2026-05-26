@@ -197,32 +197,9 @@ return;
 }
 
   // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
-function injectTidyButton(){
-  var modal=document.querySelector('.trip-proposal-share-modal');
-  if(!modal)return;
-  var actionButtons=modal.querySelector('.modal-footer .action-buttons');
-  if(!actionButtons||document.getElementById('ctTidyButton'))return;
-  var buttons=actionButtons.querySelectorAll('button');
-  if(buttons.length<2)return;
-  var tidyButton=document.createElement('div');
-  tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
-  tidyButton.id='ctTidyButton';
-  tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
-  if(!document.getElementById('ctTidyStyle')){
-    var ts=document.createElement('style');ts.id='ctTidyStyle';
-    ts.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
-    document.head.appendChild(ts);
-  }
-  actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
-  tidyButton.querySelector('button').addEventListener('click',function(){
-    var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@9eaf9b0b660bffe405ea400df2f393e38855b6e1/trip-proposalv4.js?v='+Date.now();
-    document.body.appendChild(s);
-  });
-}
-var proposalObserver=new MutationObserver(function(){injectTidyButton();});
-if(document.body)proposalObserver.observe(document.body,{childList:true,subtree:true});
-setTimeout(injectTidyButton,500);
+var s=document.createElement('script');
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposalv4.js?v='+Date.now()+'';
+document.body.appendChild(s);
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var isCollapsed=false;
@@ -1223,7 +1200,7 @@ style.textContent=
 +'display:flex;align-items:stretch;'
 +'background:white;'
 +'border-radius:12px;'
-+'box-shadow:0 4px 20px rgba(0,0,0,0.18),0 1px 4px rgba(0,0,0,0.08);'
++'box-shadow:0 4px 20px rgba(0,0,0,0.38),0 1px 4px rgba(0,0,0,0.18);'
 +'border:1.5px solid #f0d0d8;'
 +'border-left:4px solid #ff2e5f;'
 +'overflow:hidden;min-height:48px;}'
@@ -1366,14 +1343,7 @@ var toolbar=document.createElement('div');
 toolbar.id='ctToolbar';
 toolbar.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(toolbar);
-  (function(){
-var areaOut=document.querySelector('.area-out');
-if(areaOut){
-var r=areaOut.getBoundingClientRect();
-toolbar.style.right=(window.innerWidth-r.right+16)+'px';
-toolbar.style.bottom=(window.innerHeight-r.bottom+16)+'px';
-}
-})();
+  
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
 setTimeout(repositionBanner,50);
