@@ -5,7 +5,7 @@
         var iframe = document.querySelector('.share-container iframe');
         if (!iframe) return false;
         
-        var html = iframe.getAttribute('srcdoc');
+        var html = iframe.srcdoc || iframe.getAttribute('srcdoc');
         if (!html) return false;
 
         try {
@@ -27,6 +27,14 @@
             // Remove hotel images
             html = html.replace(/<tr>\s*<td width="100%">\s*<table id="proposal-enhanced-\d+-hotel-segment-\d+-hotel-images"[\s\S]{1,3000}?<\/table>\s*<\/td>\s*<\/tr>/g, '');
             html = html.replace(/<tr>\s*<td>\s*<img[^>]*class="proposal-enhanced-hotel-image"[^>]*>\s*<\/td>\s*<\/tr>/g, '');
+
+            // Highlight refueling/hidden stops
+            html = html.replace(/(<strong[^>]*-hidden-stops[^>]*>)\s*Stop\(s\):\s*(<\/strong>\s*<span[^>]*>)([^<]*)(<\/span>)/g, function(match, strong, spanOpen, content, spanClose) {
+                return '<span style="background:#fff9c4;padding:2px 5px;border-radius:3px;display:inline-block"><strong style="font-weight:700">⚠️ REFUELING STOP(S):</strong> ' + content.trim() + '</span>';
+            });
+            html = html.replace(/(<span[^>]*-hidden-stops[^>]*>)\s*&#8901&nbsp;(\d+)\s*Stop\(s\)\s*(<\/span>)/g, function(match, spanOpen, count, spanClose) {
+                return '<span style="background:#fff9c4;padding:2px 5px;border-radius:3px;font-weight:700">⚠️ ' + count + ' Refueling Stop(s)</span>';
+            });
 
             // Style passenger names
             var passengerRegex = new RegExp('(<span id="' + proposalType + '-passengers-list"[^>]*)>([\\s\\S]*?)<\\/span>', 'g');
