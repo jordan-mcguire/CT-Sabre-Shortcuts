@@ -109,11 +109,21 @@ overlay.innerHTML=
 +'<div class="hg-sec-title">Booker &amp; guarantee</div>'
 +'<div class="hg-row hg-r2" style="margin-bottom:6px">'
 +'<div class="hg-field"><label>Travel booker</label>'
-+'<div class="hg-ac"><input type="text" id="hgBooker" placeholder="Start typing..." autocomplete="off"><div class="hg-ac-list" id="hgBookerAC" style="display:none"></div></div>'
-+'<div class="hg-warn" id="hgBookerWarn" style="display:none"></div></div>'
-+'<div class="hg-field"><label>Chargeback inclusions</label><select id="hgSI"><option value="">-- Select booker first --</option></select></div>'
++'<select id="hgBooker"><option value="">-- Select booker --</option>'
++CT_BOOKERS.map(function(b){return'<option value="'+b.name+'">'+b.name+'</option>';}).join('')
++'</select></div>'
++'<div class="hg-field" id="hgBondField"><label>Chargeback inclusions</label><select id="hgBondType"><option value="bond">Room Bond and Parking</option><option value="meals">Room Meals Bond and Parking</option></select></div>'
 +'</div>'
-+'<div class="hg-field"><label>Guarantee card <span style="font-size:9px;color:#aaa">(auto-filled — editable)</span></label><input type="text" id="hgCard" placeholder="Auto-filled from booker"></div>'
++'<div class="hg-field" id="hgCardField"><label>Guarantee card <span style="font-size:9px;color:#aaa">(enter 12 hidden digits — last 4 pre-filled)</span></label>'
++'<div style="display:flex;align-items:center;gap:0;border:1px solid #ccc;border-radius:4px;overflow:hidden;background:#fff;">'
++'<input type="text" id="hgCardType" maxlength="2" value="VI" style="width:28px;text-align:center;border:none;border-right:1px solid #e0e0e0;border-radius:0;padding:4px 4px;font-family:monospace;font-size:11px;" />'
++'<input type="text" id="hgCardMiddle" maxlength="12" placeholder="____________" style="width:96px;text-align:center;border:none;border-right:1px solid #e0e0e0;border-radius:0;padding:4px 4px;font-family:monospace;font-size:11px;background:#fffde7;" />'
++'<input type="text" id="hgCardLast4" maxlength="4" style="width:36px;text-align:center;border:none;border-right:1px solid #e0e0e0;border-radius:0;padding:4px 4px;font-family:monospace;font-size:11px;" />'
++'<span style="padding:4px 6px;font-family:monospace;font-size:11px;color:#999;background:#f5f5f5;border-right:1px solid #e0e0e0;user-select:none;">EXP</span>'
++'<input type="text" id="hgCardExpiry" maxlength="4" placeholder="MMYY" style="width:40px;text-align:center;border:none;border-radius:0;padding:4px 4px;font-family:monospace;font-size:11px;" />'
++'</div>'
++'<div class="hg-warn" id="hgCardWarn" style="display:none">Enter the 12 hidden card digits to continue.</div>'
++'</div>'
 +'</div>'
 
 // Confirmation
@@ -169,50 +179,46 @@ hgHotel.addEventListener('input',function(){
 });
 hgHotel.addEventListener('blur',function(){setTimeout(function(){hgHotelAC.style.display='none';},150);});
 
-// ── Autocomplete: booker ──────────────────────────────────────────────────────
-var hgBooker=document.getElementById('hgBooker');
-var hgBookerAC=document.getElementById('hgBookerAC');
+// ── Booker dropdown ───────────────────────────────────────────────────────────
 var selectedBooker=null;
-hgBooker.addEventListener('input',function(){
-  var val=this.value.toLowerCase();
-  hgBookerAC.innerHTML='';
-  if(val.length<2){hgBookerAC.style.display='none';return;}
-  var m=CT_BOOKERS.filter(function(b){return b.name.toLowerCase().includes(val);});
-  if(!m.length){hgBookerAC.style.display='none';return;}
-  m.forEach(function(b){
-    var d=document.createElement('div');d.className='hg-ac-item';
-    d.innerHTML='<div class="hg-ac-name">'+b.name+'</div>';
-    d.addEventListener('mousedown',function(){selectBooker(b);});
-    hgBookerAC.appendChild(d);
-  });
-  hgBookerAC.style.display='block';
-});
-hgBooker.addEventListener('blur',function(){setTimeout(function(){hgBookerAC.style.display='none';},150);});
-
-function selectBooker(b){
+document.getElementById('hgBooker').addEventListener('change',function(){
+  var name=this.value;
+  var b=CT_BOOKERS.filter(function(x){return x.name===name;})[0]||null;
   selectedBooker=b;
-  hgBooker.value=b.name;
-  hgBookerAC.style.display='none';
-  var siSel=document.getElementById('hgSI');
-  var cardIn=document.getElementById('hgCard');
-  var warn=document.getElementById('hgBookerWarn');
-  siSel.innerHTML='';warn.style.display='none';
-  var isPaying=b.name==='PAYING OWN ACCOUNT';
-  if(isPaying){cardIn.value='';cardIn.placeholder='N/A — guest pays own account';}
-  else{
-cardIn.value=(b.card||'').replace('/EXP','EXP');
-    cardIn.placeholder=b.card?'Auto-filled or enter manually':'No card on file — enter manually';
-    if(!b.card){warn.textContent='No card on file for this booker';warn.style.display='block';}
-  }
-  if(b.si&&b.si.length>0){
-    b.si.forEach(function(s){var o=document.createElement('option');o.value=s.value;o.textContent=s.label;siSel.appendChild(o);});
-  }else{
-    var o=document.createElement('option');o.value='';o.textContent='No SI options — add to master list';siSel.appendChild(o);
-    warn.textContent=(warn.style.display==='block'?warn.textContent+' · ':'')+'No SI options configured';
-    warn.style.display='block';
+  var isPaying=b&&b.name==='PAYING OWN ACCOUNT';
+  document.getElementById('hgBondField').style.display=isPaying?'none':'';
+  document.getElementById('hgCardField').style.display=isPaying?'none':'';
+  if(b&&!isPaying){
+    document.getElementById('hgCardLast4').value=b.last4||'';
+    document.getElementById('hgCardExpiry').value=b.expiry||'';
+    document.getElementById('hgCardMiddle').value='';
+    document.getElementById('hgCardType').value='VI';
+    document.getElementById('hgCardWarn').style.display='block';
+  }else if(isPaying){
+    document.getElementById('hgCardMiddle').value='';
+    document.getElementById('hgCardLast4').value='';
+    document.getElementById('hgCardExpiry').value='';
   }
   buildPreview();
-}
+});
+document.getElementById('hgBondType').addEventListener('change',buildPreview);
+['hgCardType','hgCardMiddle','hgCardLast4','hgCardExpiry'].forEach(function(id){
+  var el=document.getElementById(id);
+  el.addEventListener('input',function(){
+    this.value=this.value.toUpperCase();
+    var mid=document.getElementById('hgCardMiddle').value.replace(/\s/g,'');
+    document.getElementById('hgCardWarn').style.display=(mid.length<12)?'block':'none';
+    buildPreview();
+  });
+  el.addEventListener('keydown',function(e){
+    if(e.key==='Tab')return;
+    if(this.value.length>=parseInt(this.maxLength)&&e.key.length===1&&!e.ctrlKey&&!e.metaKey){
+      e.preventDefault();
+      var next={hgCardType:'hgCardMiddle',hgCardMiddle:'hgCardLast4',hgCardLast4:'hgCardExpiry'}[this.id];
+      if(next)document.getElementById(next).focus();
+    }
+  });
+});
 
 // ── Date / nights sync ────────────────────────────────────────────────────────
 document.getElementById('hgCheckin').addEventListener('input',function(){
@@ -245,7 +251,7 @@ document.getElementById('hgCheckout').addEventListener('input',function(){
 });
 
 // ── Build preview ─────────────────────────────────────────────────────────────
-['hgCity','hgProvider','hgCRS','hgRooms','hgRate','hgRoomType','hgCurrency','hgSI','hgCard','hgCF'].forEach(function(id){
+['hgCity','hgProvider','hgCRS','hgRooms','hgRate','hgRoomType','hgCurrency','hgCF'].forEach(function(id){
   var el=document.getElementById(id);
   if(el)el.addEventListener('input',buildPreview);
   if(el)el.addEventListener('change',buildPreview);
@@ -254,7 +260,7 @@ document.getElementById('hgCheckout').addEventListener('input',function(){
   var el=document.getElementById(id);
   if(el)el.addEventListener('input',function(){this.value=this.value.toUpperCase();});
 });
-  document.getElementById('hgRate').addEventListener('blur',function(){
+document.getElementById('hgRate').addEventListener('blur',function(){
   if(this.value&&parseFloat(this.value)>0){
     this.value=parseFloat(this.value).toFixed(2);
   }
@@ -271,13 +277,32 @@ function buildPreview(){
   var currency=document.getElementById('hgCurrency').value;
   var provider=document.getElementById('hgProvider').value.toUpperCase();
   var crs=document.getElementById('hgCRS').value;
-  var si=document.getElementById('hgSI').value.toUpperCase();
-  var isPaying=selectedBooker&&selectedBooker.name==='PAYING OWN ACCOUNT';
-  var gCard=isPaying?'':document.getElementById('hgCard').value.toUpperCase();
   var cf=document.getElementById('hgCF').value.toUpperCase();
   var totalRate=(rate*rooms).toFixed(2);
+  var isPaying=selectedBooker&&selectedBooker.name==='PAYING OWN ACCOUNT';
+  var bookerSelected=!!selectedBooker;
+
+  // SI code
+  var si='';
+  if(isPaying){
+    si='PAY DIRECT';
+  }else if(selectedBooker){
+    var bondType=document.getElementById('hgBondType').value;
+    si=bondType==='meals'?(selectedBooker.meals||''):(selectedBooker.bond||'');
+  }
+
+  // Card string
+  var gCard='';
+  if(!isPaying&&selectedBooker){
+    var ct=document.getElementById('hgCardType').value.toUpperCase();
+    var mid=document.getElementById('hgCardMiddle').value.replace(/\s/g,'').toUpperCase();
+    var l4=document.getElementById('hgCardLast4').value.toUpperCase();
+    var exp=document.getElementById('hgCardExpiry').value.toUpperCase();
+    gCard=ct+mid+l4+'EXP'+exp;
+  }
 
   var missing=[];
+  if(!bookerSelected)missing.push('booker');
   if(!hotel)missing.push('hotel');
   if(!city)missing.push('city');
   if(!checkin)missing.push('check-in');
@@ -285,7 +310,11 @@ function buildPreview(){
   if(!rate)missing.push('rate');
   if(!provider)missing.push('provider');
   if(!si)missing.push('SI option');
-  if(!isPaying&&!gCard)missing.push('guarantee card');
+  if(!isPaying&&selectedBooker){
+    var midVal=document.getElementById('hgCardMiddle').value.replace(/\s/g,'');
+    if(midVal.length<12)missing.push('12 card digits');
+    if(!document.getElementById('hgCardExpiry').value)missing.push('card expiry');
+  }
   if(!cf)missing.push('confirmation number');
 
   var p1=document.getElementById('hgPrev1');
@@ -301,34 +330,37 @@ function buildPreview(){
 
   var gPart=isPaying?'':'/G-'+gCard;
   var line1='0HHTYYGK'+rooms+city+'IN'+checkin+'-OUT'+checkout+'/'+hotel+'/'+roomType+'/'+totalRate+currency+'/W-'+provider+'/CRS-'+crs+'/SI-'+si+gPart+'/CF-'+cf;
-  var line2='5L\u00A5VP-'+si+'/HTL-'+cf;
+  var line2=isPaying?'':('5L\u00A5VP-'+si+'/HTL-'+cf);
   p1.textContent=line1;
   p2.textContent=line2;
   btn.disabled=false;
   btn._line1=line1;
   btn._line2=line2;
+  btn._isPaying=isPaying;
 }
 
 // ── Send to Sabre ─────────────────────────────────────────────────────────────
 document.getElementById('hgSendBtn').addEventListener('click',function(){
   var btn=this;
-  var l1=btn._line1,l2=btn._line2;
-  if(!l1||!l2)return;
+  var l1=btn._line1,l2=btn._line2,isPaying=btn._isPaying;
+  if(!l1)return;
   btn.disabled=true;btn.classList.add('sending');btn.textContent='Sending command 1...';
   var status=document.getElementById('hgStatus');
   status.textContent='';
   sendSabreCommand(l1,function(){
-    btn.textContent='Sending command 2...';
-    status.textContent='✓ Command 1 sent';
-    sendSabreCommand(l2,function(){
+    if(isPaying){
       btn.textContent='Done!';
-      status.textContent='✓ Both commands sent';
-      setTimeout(function(){
-        btn.disabled=false;btn.classList.remove('sending');
-        btn.textContent='Send to Sabre';
-        status.textContent='';
-      },2500);
-    });
+      status.textContent='✓ Command sent';
+      setTimeout(function(){btn.disabled=false;btn.classList.remove('sending');btn.textContent='Send to Sabre';status.textContent='';},2500);
+    }else{
+      btn.textContent='Sending command 2...';
+      status.textContent='✓ Command 1 sent';
+      sendSabreCommand(l2,function(){
+        btn.textContent='Done!';
+        status.textContent='✓ Both commands sent';
+        setTimeout(function(){btn.disabled=false;btn.classList.remove('sending');btn.textContent='Send to Sabre';status.textContent='';},2500);
+      });
+    }
   });
 });
 
