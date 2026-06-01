@@ -152,54 +152,33 @@ setTimeout(function(){document.getElementById('sabrePasteButton').remove();},200
 return;
 }
 
-  if(window.location.href.includes('booking.jetstar.com')){
-  var jqBtn=document.createElement('div');
-  jqBtn.id='jqPasteButton';
-  jqBtn.innerHTML='<button id="pasteToJQBtn">✈️ PASTE TO JETSTAR</button>';
-  jqBtn.style.cssText='position:fixed;top:20px;right:20px;z-index:999999;';
-  document.body.appendChild(jqBtn);
-  var jqBtnStyle=document.createElement('style');
-  jqBtnStyle.textContent='#pasteToJQBtn{background:linear-gradient(135deg,#ff6600 0%,#ff9944 100%);color:white;border:none;padding:15px 25px;font-size:14px;font-weight:bold;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:Aptos,Arial,sans-serif;transition:transform 0.2s ease;}#pasteToJQBtn:hover{transform:scale(1.05);}';
-  document.head.appendChild(jqBtnStyle);
-  document.getElementById('pasteToJQBtn').addEventListener('click',async function(){
-    try{
-      var clip=await navigator.clipboard.readText();
-      if(!clip.startsWith('##JQ_FILL##')){alert('No JQ data found. Click "Copy to JQ Portal" in Sabre first.');return;}
-      var jqData={};
-      clip.split('\n').forEach(function(l){
-        if(l.includes('TITLE:'))jqData.title=l.split('TITLE:')[1].trim();
-        if(l.includes('FIRST:'))jqData.first=l.split('FIRST:')[1].trim();
-        if(l.includes('SURNAME:'))jqData.surname=l.split('SURNAME:')[1].trim();
-        if(l.includes('EMAIL:'))jqData.email=l.split('EMAIL:')[1].trim();
-        if(l.includes('PHONE:'))jqData.phone=l.split('PHONE:')[1].trim();
-      });
-      function setVal(el,val){el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));}
-      var titleSel=document.querySelector('select#passenger_title_0');
-      if(titleSel)setVal(titleSel,jqData.title);
-      var paxFirst=document.querySelector('input#passenger_Firstname_0');
-      if(paxFirst)setVal(paxFirst,jqData.first);
-      var paxLast=document.querySelector('input#passenger_Lastname_0');
-      if(paxLast)setVal(paxLast,jqData.surname);
-      var conFirst=document.querySelector('input#js-contact_Name_First');
-      if(conFirst)setVal(conFirst,jqData.first);
-      var conLast=document.querySelector('input#js-contact_Name_Last');
-      if(conLast)setVal(conLast,jqData.surname);
-      var emailEl=document.querySelector('input#contact_Email_Address');
-      if(emailEl)setVal(emailEl,jqData.email);
-      var phoneEl=document.querySelector('input#contact_Phone_Number');
-      if(phoneEl)setVal(phoneEl,jqData.phone);
-      document.getElementById('jqPasteButton').querySelector('button').textContent='✓ PASTED!';
-      document.getElementById('jqPasteButton').querySelector('button').style.background='#28a745';
-      setTimeout(function(){var b=document.getElementById('jqPasteButton');if(b)b.remove();},2000);
-    }catch(err){alert('Could not read clipboard: '+err.message);}
-  });
-  return;
+// ── Trip Proposal TIDY injection ──────────────────────────────────────────────
+function injectTidyButton(){
+var modal=document.querySelector('.trip-proposal-share-modal');
+if(!modal)return;
+var actionButtons=modal.querySelector('.modal-footer .action-buttons');
+if(!actionButtons||document.getElementById('ctTidyButton'))return;
+var buttons=actionButtons.querySelectorAll('button');
+if(buttons.length<2)return;
+var tidyButton=document.createElement('div');
+tidyButton.className='scope-wrapper sabre-ngv-themes-components-form';
+tidyButton.id='ctTidyButton';
+tidyButton.innerHTML='<button class="force-inline-block-wrapper button regular primary ct-tidy-btn" type="button">TIDY</button>';
+if(!document.getElementById('ctTidyStyle')){
+var ts=document.createElement('style');ts.id='ctTidyStyle';
+ts.textContent='.ct-tidy-btn{background-color:#ff2e5f !important;color:white !important;}';
+document.head.appendChild(ts);
 }
-
-  // ── Trip Proposal TIDY injection ──────────────────────────────────────────────
+actionButtons.insertBefore(tidyButton,buttons[1].parentElement);
+tidyButton.querySelector('button').addEventListener('click',function(){
 var s=document.createElement('script');
-s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@dad3418edbab29b54a943a2ea3d444f7cf7ea91b/trip-proposalv4.js?v='+Date.now()+'';
+s.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/trip-proposal.js';
 document.body.appendChild(s);
+});
+}
+var proposalObserver=new MutationObserver(function(){injectTidyButton();});
+if(document.body)proposalObserver.observe(document.body,{childList:true,subtree:true});
+setTimeout(injectTidyButton,500);
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var isCollapsed=false;
@@ -262,7 +241,7 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
-['ctCostCentreBar','ctLuminaBookingBar','ctLuminaItinBar'].forEach(function(id){
+['ctCostCentreBar','ctLuminaBookingBar'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
 ['ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
@@ -331,20 +310,16 @@ else if(typeof callback==='function')setTimeout(callback,800);
 // Sends two commands sequentially: first changes method to M, then updates TTL
 function executeMissedTTL(){
 closeAllPopups();
-// Step 1: update method to Mixed (M)
-var methodLine=currentBookingInfo.methodLine;
-if(!methodLine){showToast('⚠️ No method line found');return;}
-executeSabreCommand('5'+methodLine+'¤L¥METHOD-M',null,function(){
-// Step 2: update TTL to today
+var freshInfo=extractBookingInfo();
+if(!freshInfo.methodLine){showToast('⚠️ No method line found');return;}
+updateMethod(freshInfo.methodLine,'M');
 setTimeout(function(){
 executeSabreCommand('7TAW'+todayDDMON()+'/',null,function(){
-// Prompt agent to save and re-download
 setTimeout(function(){
 showSavePNRMessage('💾 Save PNR then re-download to Lumina (LDD)');
 },400);
 });
 },600);
-});
 }
 
 // ── Extraction ────────────────────────────────────────────────────────────────
@@ -386,7 +361,7 @@ var bodyText=responseElement?responseElement.innerText:document.body.innerText;
 var lineScope=responseElement||document;
 var lines=lineScope.querySelectorAll('.dn-line.text-line');
 var info={pnr:'',traveller:'',surname:'',firstname:'',company:'',luminaId:'',booker:'',
-method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',profileId:'',
+method:'',methodLine:0,approved:false,notes:[],email:'',phone:'',
 hasEticket:false,ticketInfo:{ticketNo:'',paxName:'',pnr:''},tickets:[],isGraphicalView:false};
 
 var isGfx=document.querySelector('.pnr-record-locator')!==null;
@@ -425,7 +400,6 @@ info.traveller=rawPax;
 if(rawPax){var np=rawPax.split('/');if(np.length>=2){info.surname=np[0].trim();info.firstname=np[1].trim();}}
 var cm=bodyText.match(/L¥COMPANY ID-([^\s\n]+)/);if(cm)info.company=cm[1].trim();
 var lm=bodyText.match(/L¥LUMINA ID-(\d+)/);if(lm)info.luminaId=lm[1].trim();
-var pgm=bodyText.match(/L¥PROFILEGATE-(\d+)/);if(pgm)info.profileId=pgm[1].trim();
 var bm=bodyText.match(/L¥BKG MADE-([^\/\n]+)/);if(bm)info.booker=bm[1].trim();
 var mm=bodyText.match(/\s*(\d+)\.L¥METHOD-([WMET])/);if(mm){info.methodLine=parseInt(mm[1]);info.method=mm[2];}
 
@@ -556,7 +530,6 @@ h+='<button class="ct-popup-btn" data-action="copyName">👤 Name <kbd>Alt+N</kb
 h+='<button class="ct-popup-btn" data-action="copyMobile">📱 Mobile <kbd>Alt+M</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyEmail">✉️ Email <kbd>Alt+J</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="copyAllContact">📋 Copy All Contact <kbd>Alt+C</kbd></button>';
-h+='<button class="ct-popup-btn ct-jq-btn" data-action="copyToJQ">✈️ Copy to JQ Portal</button>';
 }
 return h;
 }
@@ -576,7 +549,6 @@ h+='<button class="ct-popup-btn" data-action="updateTTL">⏱ Update TTL ('+today
 h+='<button class="ct-popup-btn" data-action="queueSerko">📤 Queue to Serko <kbd>Alt+Q</kbd></button>';
 h+='<button class="ct-popup-btn ct-missed-ttl-btn" data-action="missedTTL">⚠️ Missed TTL (Mixed + TTL) <kbd>Alt+X</kbd></button>';
 h+='<button class="ct-popup-btn" data-action="changeLuminaBooking">🔢 Change Lumina Booking</button>';
-h+='<button class="ct-popup-btn" data-action="saveLuminaItinerary">📄 Save Lumina Itinerary (PDF)</button>';
 h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost Centre</button>';
   h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
 h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
@@ -760,14 +732,7 @@ case 'queueSerko':
 executeSabreCommand('QP/90/1',null);showToast('✓ Queue command sent');closeAllPopups();break;
 case 'missedTTL':
 executeMissedTTL();break;
-case 'saveLuminaItinerary':
-  closeAllPopups();
-  var bid=currentBookingInfo.luminaId;
-  var pid=currentBookingInfo.profileId;
-  if(!bid||!pid){showToast('⚠️ N/A - manual print required');break;}
-  window.open('https://corp-portal.au.fcl.internal/portal/generateItinerary.srvlt?id='+bid+'&type=.PDF&preview=false&airFareDisplay=false&costingsDisplayFlag=false&feesDisplayFlag=false&hideOtherCostings=true&createIndividualItinerary=false&profileUnique='+pid,'_blank');
-  break;
-case 'changeLuminaBooking':
+    case 'changeLuminaBooking':
     var ccBar2=document.getElementById('ctCostCentreBar');if(ccBar2)ccBar2.remove();
   var lbMatch=document.body.innerText.match(/(\d+)\.\s*L¥LUMINA ID-(\d+)/);
   var lbLine=lbMatch?lbMatch[1]:'';
@@ -884,19 +849,6 @@ case 'tnwPassives':
     document.body.appendChild(s2);
   };
   document.body.appendChild(s1);
-  break;
-case 'copyToJQ':
-  var raw=currentBookingInfo.traveller||cachedTraveler||'';
-  var jqM=raw.match(/^([^\/]+)\/(.+)\s+(MR|MRS|MS|MISS|DR|CAPT|PROF|REV)$/i);
-  if(!jqM){showToast('⚠️ Could not parse name/title from PNR');break;}
-  var jqSurname=jqM[1].trim();
-  var jqFirst=jqM[2].trim();
-  var jqTitle=jqM[3].toUpperCase();
-  var jqPhone=currentBookingInfo.phone||'';
-  var jqPhoneClean=jqPhone.replace(/\D/g,'').slice(-9);
-  var jqEmail=currentBookingInfo.email||'';
-  var jqPayload='##JQ_FILL##\nTITLE:'+jqTitle+'\nFIRST:'+jqFirst+'\nSURNAME:'+jqSurname+'\nEMAIL:'+jqEmail+'\nPHONE:'+jqPhoneClean;
-  navigator.clipboard.writeText(jqPayload).then(function(){showToast('✓ Copied for JQ Portal');});
   break;
 }
 }
@@ -1079,11 +1031,6 @@ get lastKnownPNR(){return lastKnownPNR;},
 get pendingCommandPoll(){return pendingCommandPoll;}
 };
 window.__ctTrigger=function(){
-// Cheap pre-check: only run full extraction if response area text has changed
-var obsEl=document.querySelector('.dn-response-line:last-of-type .dn-line-group')||document.querySelector('.dn-line-group');
-var quickSnap=obsEl?obsEl.textContent.slice(0,120):'';
-if(quickSnap&&quickSnap===window.__ctLastSnap&&currentTicketView===window.__ctLastView){return{};}
-window.__ctLastSnap=quickSnap;window.__ctLastView=currentTicketView;
 var ni=extractBookingInfo();
 var nv=ni.hasEticket?'eticket':(ni.tickets.length>0?'list':'default');
 var pnrChanged=ni.pnr&&ni.pnr!==lastKnownPNR;
@@ -1111,14 +1058,14 @@ window.__ctTrigger();
 },300);
 });
 var obsTarget=document.querySelector('.area-out')||document.body;
-window.__ctObserver.observe(obsTarget,{childList:true,subtree:true});
+window.__ctObserver.observe(obsTarget,{childList:true,subtree:true,characterData:true});
 
-// Heartbeat — safety net only; observer handles fast changes
+// Heartbeat — calls window.__ctTrigger so closure ambiguity is impossible
 window.__ctHeartbeat=setInterval(function(){
 if(!document.getElementById('ctToolbar')&&!document.getElementById('ctToolbarIcon'))return;
 if(window.__ctState.pendingCommandPoll)return;
 window.__ctTrigger();
-},1500);
+},300);
 
 document.addEventListener('click',function(e){
 if(!openPopup)return;
@@ -1200,7 +1147,7 @@ style.textContent=
 +'display:flex;align-items:stretch;'
 +'background:white;'
 +'border-radius:12px;'
-+'box-shadow:0 4px 20px rgba(0,0,0,0.38),0 1px 4px rgba(0,0,0,0.18);'
++'box-shadow:0 4px 20px rgba(0,0,0,0.18),0 1px 4px rgba(0,0,0,0.08);'
 +'border:1.5px solid #f0d0d8;'
 +'border-left:4px solid #ff2e5f;'
 +'overflow:hidden;min-height:48px;}'
@@ -1330,8 +1277,6 @@ style.textContent=
 +'@keyframes ctFadeOut{0%{opacity:1}65%{opacity:1}100%{opacity:0}}'
 +'.ct-tnw-btn{background:#00434e !important;color:#fff !important;border-color:#00434e !important;}'
 +'.ct-tnw-btn:hover{background:#002d35 !important;}'
-+'.ct-jq-btn{background:#ff6600 !important;color:#fff !important;border-color:#ff6600 !important;}'
-+'.ct-jq-btn:hover{background:#cc5200 !important;}'
   +'.ct-tr-list-btn{flex:0 0 auto !important;width:auto !important;}'
   ;
 
@@ -1343,7 +1288,14 @@ var toolbar=document.createElement('div');
 toolbar.id='ctToolbar';
 toolbar.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(toolbar);
-  
+  (function(){
+var areaOut=document.querySelector('.area-out');
+if(areaOut){
+var r=areaOut.getBoundingClientRect();
+toolbar.style.right=(window.innerWidth-r.right+16)+'px';
+toolbar.style.bottom=(window.innerHeight-r.bottom+16)+'px';
+}
+})();
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
 setTimeout(repositionBanner,50);
