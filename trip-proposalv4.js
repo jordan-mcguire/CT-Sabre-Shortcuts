@@ -140,6 +140,9 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
     // Get proposal ID
     var propIdEl=doc.getElementById(pType+'-proposal-id');
     var propId=propIdEl?propIdEl.textContent.trim():'';
+    // Extract passenger name before header is replaced (element will be wiped)
+    var paxElPre=doc.getElementById(pType+'-passengers-list');
+    var paxNameCached=paxElPre?paxElPre.textContent.trim():'';
     // Build clean header
     headerRow.innerHTML='<td style="padding:10px 16px;border-bottom:1px solid #ebebeb">'
       +'<table width="100%" border="0" cellpadding="0" cellspacing="0"><tr>'
@@ -160,10 +163,9 @@ function applyTransforms(doc,pType,selectedKeys,priceOverrides,hasCarOption,trip
   }
 
   // 11. Passenger name block
-  var paxEl=doc.getElementById(pType+'-passengers-list');
-  if(paxEl&&paxEl.textContent.trim()){
+  if(paxNameCached){
     var paxRow=doc.createElement('tr');
-    paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 16px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxEl.textContent.trim()+'</span></div></td>';
+    paxRow.innerHTML='<td><div style="background:#fff;border:1px solid #e0e0e0;border-radius:4px;padding:12px 16px;margin:8px 0"><strong style="color:#ff2e5f;font-size:11px;display:block;margin-bottom:6px">✈️ PASSENGER NAME AS PER PHOTO ID / PASSPORT:</strong><span style="font-size:11px;line-height:1.6">'+paxNameCached+'</span></div></td>';
     if(bodyEl)bodyEl.parentNode.insertBefore(paxRow,bodyEl);
   }
 
