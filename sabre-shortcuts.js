@@ -614,6 +614,7 @@ h+='<button class="ct-popup-btn" data-action="saveLuminaItinerary">📄 Save Lum
 h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost Centre</button>';
   h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">TOOLS</div>';
 h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
+  h+='<button class="ct-popup-btn" data-action="ndcChangeQuote">✈️ NDC Change Quote</button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
 h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
@@ -937,6 +938,12 @@ case 'tnwPassives':
     document.body.appendChild(s2);
   };
   document.body.appendChild(s1);
+  break;
+case 'ndcChangeQuote':
+  closeAllPopups();
+  var sNDC=document.createElement('script');
+  sNDC.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/ndc-change.js?v='+Date.now();
+  document.body.appendChild(sNDC);
   break;
 }
 }
