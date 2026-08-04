@@ -1,7 +1,7 @@
 (function(){
 if(document.getElementById('ctToolbar'))document.getElementById('ctToolbar').remove();
 if(document.getElementById('ctToolbarIcon'))document.getElementById('ctToolbarIcon').remove();
-['ctNotesBanner','ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
+['ctNotesBanner','ctNonGdsBadge','ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup','ctSabreToast'].forEach(function(id){
 var el=document.getElementById(id);if(el)el.remove();
 });
 
@@ -277,7 +277,7 @@ setTimeout(function(){el.innerHTML=orig;el.style.background=origBg;el.style.colo
 function showToast(msg){
 var ex=document.getElementById('ctSabreToast');if(ex)ex.remove();
 var t=document.createElement('div');t.id='ctSabreToast';t.textContent=msg;
-t.style.cssText='position:fixed;bottom:90px;right:24px;background:#28a745;color:white;'
+t.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#28a745;color:white;'
 +'font-family:Aptos,Arial,sans-serif;font-size:12px;font-weight:600;'
 +'padding:8px 16px;border-radius:6px;box-shadow:0 3px 12px rgba(0,0,0,0.25);'
 +'z-index:1000002;opacity:1;transition:opacity 0.4s ease;pointer-events:none;';
@@ -286,9 +286,6 @@ setTimeout(function(){t.style.opacity='0';setTimeout(function(){t.remove();},420
 }
 
 function closeAllPopups(){
-['ctCostCentreBar','ctLuminaBookingBar'].forEach(function(id){
-var el=document.getElementById(id);if(el)el.remove();
-});
 ['ctCopyPopup','ctViewPopup','ctActionsPopup','ctTicketPanel','ctShortcutsPopup'].forEach(function(id){
 var el=document.getElementById(id);
 if(el){el.style.opacity='0';el.style.transform='translateY(6px)';setTimeout(function(){el.remove();},150);}
@@ -456,6 +453,7 @@ if(/\d+\.OSI VA VACC/.test(bodyText))info.osiChips.push({label:'VA \u00b7 ACC99'
 if(/\d+\.OSI QF QSME/.test(bodyText))info.osiChips.push({label:'QF \u00b7 QBR',color:'#E24B4A',deal:false,cmd:'N*'});
 if(/\d+\.OSI QF QCID/.test(bodyText))info.osiChips.push({label:'QF DEAL',color:'#E24B4A',deal:true,cmd:'N*'});
 if(/\d+\.X\/-VA-PRI-/.test(bodyText))info.osiChips.push({label:'VA DEAL',color:'#7F77DD',deal:true,cmd:'N*'});
+if(/PLS BK NON GDS HTL/.test(bodyText))info.nonGdsHotel=true;else info.nonGdsHotel=false;
 
 if(bodyText.indexOf('B¥BOOKING REJECTED')>-1)info.approved='rejected';
 else if(bodyText.indexOf('A¥BOOKING STATUS CHANGED TO PENDING CANCELLATION')>-1)info.approved='cancellation';
@@ -522,6 +520,7 @@ banner.style.right=(window.innerWidth-tbRect.right)+'px';
 
 function syncNotesBanner(info){
 var existing=document.getElementById('ctNotesBanner');
+if(isCollapsed){if(existing)existing.remove();return;}
 if(info.notes&&info.notes.length>0){
 if(!existing){
 var banner=document.createElement('div');
@@ -534,6 +533,23 @@ repositionBanner();
 if(existing)existing.remove();
 notesExpanded=false;
 }
+}
+
+function syncNonGdsBadge(info){
+var existing=document.getElementById('ctNonGdsBadge');
+if(isCollapsed||!info.nonGdsHotel){if(existing)existing.remove();return;}
+if(existing)return;
+var outputPanel=document.querySelector('.area-out');
+if(!outputPanel)return;
+if(getComputedStyle(outputPanel).position==='static')outputPanel.style.position='relative';
+var badge=document.createElement('div');
+badge.id='ctNonGdsBadge';
+badge.innerHTML='<div class="ct-nongds-header">'
++'<span class="ct-nongds-icon">🏨</span>'
++'<span class="ct-nongds-title">ON REQUEST HOTEL</span>'
++'</div>'
++'<div class="ct-nongds-body">Hotel to be manually booked (non GDS)</div>';
+outputPanel.appendChild(badge);
 }
 
 // ── Build toolbar HTML ────────────────────────────────────────────────────────
@@ -616,6 +632,7 @@ h+='<button class="ct-popup-btn" data-action="changeCostCentre">💼 Change Cost
 h+='<button class="ct-popup-btn ct-tnw-btn" data-action="tnwPassives">\uD83C\uDFE8 TNW Passives</button>';
   h+='<button class="ct-popup-btn" data-action="groupHotelBooking">🏨 Group Hotel Booking</button>';
   h+='<button class="ct-popup-btn" data-action="ndcChangeQuote">✈️ NDC Change Quote</button>';
+  h+='<button class="ct-popup-btn" data-action="quoteSchedules">🗓️ Quote Schedules</button>';
 if(info.method){
 h+='<div class="ct-popup-divider"></div><div class="ct-popup-label">BOOKING METHOD</div>';
 h+='<select class="ct-method-select" data-line="'+info.methodLine+'">'
@@ -952,6 +969,12 @@ case 'ndcChangeQuote':
   sNDC.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/ndc-change.js?v='+Date.now();
   document.body.appendChild(sNDC);
   break;
+case 'quoteSchedules':
+  closeAllPopups();
+  var sQS=document.createElement('script');
+  sQS.src='https://cdn.jsdelivr.net/gh/jordan-mcguire/CT-Sabre-Shortcuts@main/quote-schedules.js?v='+Date.now();
+  document.body.appendChild(sQS);
+  break;
 }
 }
 
@@ -970,6 +993,7 @@ function updateAll(){
 var tb=document.getElementById('ctToolbar');
 if(tb){tb.innerHTML=buildToolbarHTML(currentBookingInfo);attachToolbarHandlers();}
 syncNotesBanner(currentBookingInfo);
+syncNonGdsBadge(currentBookingInfo);
 }
 
 // ── Collapse / expand ─────────────────────────────────────────────────────────
@@ -1010,6 +1034,7 @@ tb.innerHTML=buildToolbarHTML(currentBookingInfo);
 document.body.appendChild(tb);
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
+syncNonGdsBadge(currentBookingInfo);
 setTimeout(repositionBanner,50);
 }
 
@@ -1114,7 +1139,7 @@ closeAllPopups();updateAll();
 }else if(viewChanged){
 currentBookingInfo=ni;currentTicketView=nv;updateAll();
 }else{
-currentBookingInfo=ni;syncNotesBanner(ni);
+currentBookingInfo=ni;syncNotesBanner(ni);syncNonGdsBadge(ni);
 }
 
 // Auto-open ticket panel whenever we land on list or eticket view
@@ -1182,9 +1207,13 @@ window.__ctTrigger();
 },300);
 
 document.addEventListener('click',function(e){
+var tb=document.getElementById('ctToolbar');
+var ccBar=document.getElementById('ctCostCentreBar');
+if(ccBar&&!ccBar.contains(e.target)&&(!tb||!tb.contains(e.target)))ccBar.remove();
+var lbBar=document.getElementById('ctLuminaBookingBar');
+if(lbBar&&!lbBar.contains(e.target)&&(!tb||!tb.contains(e.target)))lbBar.remove();
 if(!openPopup)return;
 var popup=document.getElementById(openPopup);
-var tb=document.getElementById('ctToolbar');
 if(popup&&!popup.contains(e.target)&&(!tb||!tb.contains(e.target)))closeAllPopups();
 },{capture:true});
 
@@ -1355,6 +1384,16 @@ style.textContent=
 +'.ct-banner-toggle{font-size:12px;color:#cc1a45;flex-shrink:0;}'
 +'.ct-banner-notes{padding:8px 12px 10px;border-top:1px solid #f0d0d8;}'
 +'.ct-banner-note-line{font-size:10.5px;line-height:1.6;color:#444;padding:3px 0;word-break:break-word;white-space:pre-wrap;}'
++'#ctNonGdsBadge{'
++'position:absolute;top:8px;right:8px;z-index:999999;width:260px;'
++'background:#fff5f7;border:1px solid #f0d0d8;border-left:4px solid #ff2e5f;'
++'border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.18);'
++'font-family:Aptos,Arial,sans-serif;padding:10px 14px;pointer-events:none;'
++'animation:ctPopIn 0.2s ease-out;}'
++'.ct-nongds-header{display:flex;align-items:center;gap:8px;margin-bottom:4px;}'
++'.ct-nongds-icon{font-size:14px;}'
++'.ct-nongds-title{font-size:11px;font-weight:800;color:#cc1a45;letter-spacing:0.3px;}'
++'.ct-nongds-body{font-size:10.5px;color:#444;line-height:1.4;}'
 
 // Popup
 +'.ct-popup{position:fixed;z-index:1000001;width:230px;background:white;'
@@ -1417,6 +1456,7 @@ toolbar.style.bottom=(window.innerHeight-r.bottom+16)+'px';
 })();
 attachToolbarHandlers();
 syncNotesBanner(currentBookingInfo);
+syncNonGdsBadge(currentBookingInfo);
 setTimeout(repositionBanner,50);
 
 })();
